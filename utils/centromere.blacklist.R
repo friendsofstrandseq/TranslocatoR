@@ -31,7 +31,7 @@ centro.blacklist <- function() {
   # start and end centromere column
   allgaps <- merge(allgaps, allgaps[type=='centromere',.(centro.start=min(chromStart), centro.end=max(chromEnd)),by=chrom])
   
-  # bool column for selection: extend blacklist to regions surrounding centromeres by 2Mb (contigs, scaffolds, heterochromatin, short arm)
+  # bool column for selection: extend blacklist to regions surrounding centromeres by 2Mb (contigs, scaffolds, heterochromatin, short arm in the gaps file)
   allgaps[,include := ((chromStart >= (centro.start - 2000000) & chromStart < centro.end)| 
                          (chromEnd <= (centro.end + 2000000) & chromEnd > centro.end) | 
                          type=='heterochromatin' |
