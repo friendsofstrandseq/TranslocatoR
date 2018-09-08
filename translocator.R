@@ -11,6 +11,7 @@
 #' 
 #' @author Alex van Vliet
 #' TODO: namespace http://r-pkgs.had.co.nz/namespace.html
+#' TODO: what happens when segment is exactly half (not majority/minority)
 
 ### Libraries --> move to namespace
 library(data.table)
@@ -140,6 +141,9 @@ translocatoR <- function(data.folder, samples, trfile, output.folder, binsize, b
     
     counts <- switch.counts
     
+    # get segments with lowest sse
+    segments.many <- segments[,.SD[sse==min(sse)],by=chrom][,.(chrom, start, end)]
+    
     ## DEBUG recurring segments / discrepancy with segmented region --> chr13
     counts <- counts[order(sample, cell, chrom, start, end)]
     counts$cnsc <- cumsum(counts[, .(consecutive = c(1,abs(diff(as.numeric(factor(class)))))), by = .(sample, cell, chrom)]$consecutive)
@@ -148,21 +152,31 @@ translocatoR <- function(data.folder, samples, trfile, output.folder, binsize, b
     counts.recseg <- counts.recseg[,.SD[1], by=.(sample, cell, chrom, start, end)]
     # recurrent breakpoints that cover at least 1Mb
     bps.recseg <- counts.recseg[,.N, by=.(chrom, start, end)][mixedorder(chrom)]
-    bps.recseg[, whole.chrom := start==min(start) & end == max(end), by=chrom]
+    bps.recseg[, whole.chrom := start == min(start) & end == max(end), by=chrom]
     bps.recseg[, len := end - start]
     bps.recseg <- bps.recseg[whole.chrom==F & N > 1 & len >= 1000000]
     setkey(bps.recseg, chrom, start, end)
+    # by how many segments is each of these regions represented
     whichseg <- foverlaps(segments.many, bps.recseg)
     whichseg[, seg.id := paste0(i.start, "-", i.end)]
-    # by how many segments is each of these regions represented
-    whichseg <- na.omit(whichseg[,.SD[,uniqueN(seg.id)],by=.(chrom, start, end)])
-    setnames(whichseg, "V1", "numseg")
+    howmanyseg <- na.omit(whichseg[,.SD[,uniqueN(seg.id)],by=.(chrom, start, end)])
+    setnames(howmanyseg, "V1", "numseg")
     # if the region falls in just one segment and is not the majority it can never be represented
-    ## TODO: majority check!
-    newseg <- whichseg[numseg == 1]
+    # so a final check is to see if that one segment covers the majority of the region
+    # if not, make a new segment
+    newseg <- howmanyseg[numseg == 1]
+    newseg <- merge(newseg, whichseg, by=c("chrom", "start", "end"))
+    newseg[, seg.len := i.end - i.start]
+    newseg[, majority := len/seg.len >= 0.5]
+    newseg <- newseg[majority==F, .(start = min(start), end = max(end)),by=.(chrom, i.start, i.end)]
+    newseg <- newseg[, cbind(newseg[, .(start = c(i.start, start, end))], newseg[, .(end = c(start, end, i.end))]), by= chrom]
+    # now overlap: remove old segment(s) and replace new at the same time
+    setkey(newseg, chrom, start, end)
+    segments.many <- foverlaps(segments.many, newseg)
+    segments.many[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
+    segments.many <- segments.many[,.(chrom, i.start, i.end)]
+    setnames(segments.many, c("i.start", "i.end"), c("start", "end"))
     
-    # get segments with highest sse
-    segments.many <- segments[,.SD[sse==min(sse)],by=chrom][,.(chrom, start, end)]
     setkey(segments.many, chrom, start, end)
     setkey(counts, chrom, start, end)
     segment.counts <-foverlaps(counts, segments.many)
