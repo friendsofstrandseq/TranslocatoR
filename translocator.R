@@ -14,7 +14,8 @@
 #' TODO: what happens when segment is exactly half (not majority/minority)
 #' TODO: incorporate discreteMTP calc
 #' TODO: option to look at one or more segments (instead of seeing which segments are characterized by strand changes, get a segment and look which state it has in each chrom)
-
+#' TODO: return list of interesting bps/potential inversions?
+#' 
 ### Libraries --> move to namespace
 library(data.table)
 library(gtools)
@@ -147,14 +148,6 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     # summarize the majority class per segment by retrieving start and end for each segment
     bp.segs <- seg.finder(segment.class)
     
-    ## section may not be important ###
-    bps <- bp.segs[,.N, by=.(chrom, start, end)][mixedorder(chrom)]
-    bps[, whole.chrom := start==min(start) & end == max(end), by=chrom]
-    bps <- bps[whole.chrom==F]
-    bps[, size := end - start]
-    bps.pot <- bps[N >= total.cells*0.1 & size > 1000000] # most important recurrent bps: are larger than 1 Mb, occur at least in 10% of cells
-    ## remove above? ###
-    
     # assign each cell + chromosome combination a label of breakpoints
     unique.bps <- bp.segs[,unique(c(start, end)) ,by=.(cell, chrom)][, .(unique.bp = sapply(.SD, toString)), by=.(cell, chrom)]
     bp.segs <- merge(bp.segs, unique.bps)
@@ -162,28 +155,19 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     # by using the breakpoint label unique.bp we can tell how many cells have this exact breakpoint pattern
     bp.segs[, cells.unique.bp := length(unique(cell)), by=.(chrom, unique.bp)]
     
-    # select cells where bp is <= 2 (bp occurs max twice in sample)
-    #bp.segs[cells.unique.bp<=2]
-    bp.segs <- merge(bp.segs, bps, by=c("chrom", "start", "end"))
+    # get bp.count: how often this exact breakpoint (start-end) occurs in the sample
+    bp.segs <- bp.segs[, bp.count := .N, by=.(chrom, start, end)][mixedorder(chrom)]
     bp.segs <- bp.segs[order(cell, chrom, start, end)]
     bp.segs[, len := end - start]
     
-    bp.segs[N <= 2, c("start","end", "majority"):=.(min(start), max(end), .SD[which.max(len), class_]), by=.(cell, chrom)]
+    # for breakpoints that occur <=2 times: ignore this breakpoint as it's probably an SCE and will not be useful for analysis later
+    bp.segs[bp.count <= 2, c("start","end", "majority"):=.(min(start), max(end), .SD[which.max(len), class]), by=.(cell, chrom)]
     final.segs <- unique(bp.segs[is.na(majority) | class==majority, .(sample, cell, chrom, start, end, class)])
     
-    final.segs[, label:=paste0(chrom, ":", start, "-", end)]
-    final.segs[,c("H1","H2"):=.(substring(class_, 0,1), substring(class_,2))]
-    final.segs[,c("H1_factor","H2_factor"):=.(as.numeric(factor(H1)),as.numeric(factor(H2)))]
-    final.segs.castH1 <- dcast(final.segs, cell~label,value.var = 'H1_factor', drop=F)
-    setcolorder(final.segs.castH1, mixedorder(names(final.segs.castH1)))
-    final.segs.castH2 <- dcast(final.segs, cell~label,value.var = 'H2_factor', drop=F)
-    setcolorder(final.segs.castH2, mixedorder(names(final.segs.castH2)))
-    
-    setnames(final.segs.castH1, names(final.segs.castH1)[-1], paste0(names(final.segs.castH1)[-1], ".H1"))
-    setnames(final.segs.castH2, names(final.segs.castH2)[-1], paste0(names(final.segs.castH2)[-1], ".H2"))
-    final.segs.H1H2 <- cbind(final.segs.castH1, final.segs.castH2[,-1])
+    final.segs.H1H2 <- cast.haplotypes(final.segs)
     
     spearman.dt <- getcor(final.segs.H1H2) # silence warnings
+    
     test <- sapply(1:nrow(spearman.dt), function(x){if (x%%1000 == 0){cat(paste(x, "combinations out of", nrow(spearman.dt),"calculated\n"))}
       p.helper(final.segs.H1H2[,.(get(spearman.dt[["Var1"]][x]), get(spearman.dt[["Var2"]][x]))])})
     test2 <- as.data.table(matrix(test, nrow = nrow(spearman.dt), ncol = 2, byrow = T))
