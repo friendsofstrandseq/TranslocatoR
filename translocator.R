@@ -34,6 +34,8 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
   root.dir <- rprojroot::find_root("translocator.R")
   # load helper functions
   source(file.path(root.dir, "utils/helpers.R"))
+  source(file.path(root.dir, "utils/bincleaning.R"))
+  source(file.path(root.dir, "utils/phasecounts.R"))
   
   if (blacklist == F) {
     cat("Proceeding without blacklist. This will affect performance negatively.")
@@ -100,108 +102,50 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
       stop(paste("Can't read the segments file", paste0(binsize, "_fixed_norm.txt"), "in", segments.folder))
     })
     
-    #################
-    ## Analysis start
-    #################
+    #################################
+    ## Analysis: cleaning and phasing
+    #################################
     
     total.cells <- counts[, length(unique(cell))]
     cat(paste("Analyzing", total.cells, "cells in sample", sample))
     
-    ### Combining phased data and counts data to get phased counts (flipping WC to CW where necessary)
+    # remove all None bins and centromeric bins
+    counts <- clean.bins(counts)
     
-    # start by blacklisting regions and then removing leftover None bins
-    setkey(blacklist, chrom, start, end)
-    counts.blacklist <- foverlaps(counts, blacklist)
+    # combine phased data and counts data to get phased counts (flipping WC to CW where necessary)
+    counts <- phase.counts(counts, phased)
     
-    # all bins that aren't in the blacklist will have a NA value in the (blacklist) start column so just select for those
-    cat(paste("Removing", nrow(counts.blacklist[!is.na(start)]), "blacklisted bins in", total.cells, "cells"))
-    counts <- counts.blacklist[is.na(start)]
-    cat(paste("Removing", nrow(counts.blacklist[class=='None']), "None bins in", total.cells, "cells"))
-    counts <- counts[class!='None']
+    ###########################################################
+    ### Analysis: use MosaiCatcher segments to segment the data 
+    ### and get the haplotype-aware state for each segment
+    ##########################################################
     
-    # remove superfluous columns, rename
-    counts[, c("start", "end") := NULL]
-    setnames(counts, c("i.start", "i.end"), c("start", "end"))
-    
-    # identify stretches of consecutive states (taken from Venla's SCE detector) -- remove here?
-    counts <- counts[order(sample, cell, chrom, start, end)]
-    counts$cnsc <- cumsum(counts[, .(consecutive = c(1,abs(diff(as.numeric(factor(class)))))), by = .(sample, cell, chrom)]$consecutive)
-    
-    # FOR DEBUG see all state changes
-    # counts[,.SD[c(1,.N)],by=cnsc]
-    
-    # overlap the phased data with the count data and switch all WC to CW where necessary
-    setkey(counts, sample, cell, chrom, start, end)
-    setkey(phased, sample, cell, chrom, start, end)
-    switch.counts <- foverlaps(counts, phased, mult="last")
-    switch.counts[i.class == 'WC' & class == "CW", i.class := 'CW']
-    switch.counts <- switch.counts[,.(sample, cell, chrom, i.start, i.end, c, w, i.class)]
-    setnames(switch.counts, c("i.start", "i.end", "i.class"), c("start", "end", "class"))
-    
-    cat("The strand inheritance before phasing:\n")
-    print(counts[,prop.table(table(class))])
-    cat("The strand inheritance after phasing:\n")
-    switch.counts[,prop.table(table(class))]
-    
-    counts <- switch.counts
-    rm(switch.counts)
-    
-    ### Using MosaiCatcher segments to segment the data and get the haplotype-aware state for each segment
+    # find recurrent segments in the count data without looking at the segmented data
+    seg.count <- seg.finder(counts)
+    recurrent.segs <- rec.seg(seg.count)
     
     # get segments with lowest sse
     segments.many <- segments[,.SD[sse==min(sse)],by=chrom][,.(chrom, start, end)]
     
-    ## DEBUG recurring segments / discrepancy with segmented region --> chr13
-    counts <- counts[order(sample, cell, chrom, start, end)]
-    counts$cnsc <- cumsum(counts[, .(consecutive = c(1,abs(diff(as.numeric(factor(class)))))), by = .(sample, cell, chrom)]$consecutive)
-    counts.recseg <- counts[, .SD[c(1,.N)], by=cnsc]
-    counts.recseg[, c("start","end"):=.(min(start), max(end)), by=cnsc]
-    counts.recseg <- counts.recseg[,.SD[1], by=.(sample, cell, chrom, start, end)]
-    # recurrent breakpoints that cover at least 1Mb
-    bps.recseg <- counts.recseg[,.N, by=.(chrom, start, end)][mixedorder(chrom)]
-    bps.recseg[, whole.chrom := start == min(start) & end == max(end), by=chrom]
-    bps.recseg[, len := end - start]
-    bps.recseg <- bps.recseg[whole.chrom==F & N > 1 & len >= 1000000]
-    setkey(bps.recseg, chrom, start, end)
-    # by how many segments is each of these regions represented
-    whichseg <- foverlaps(segments.many, bps.recseg)
-    whichseg[, seg.id := paste0(i.start, "-", i.end)]
-    howmanyseg <- na.omit(whichseg[,.SD[,uniqueN(seg.id)],by=.(chrom, start, end)])
-    setnames(howmanyseg, "V1", "numseg")
-    # if the region falls in just one segment and is not the majority it can never be represented
-    # so a final check is to see if that one segment covers the majority of the region
-    # if not, make a new segment
-    newseg <- howmanyseg[numseg == 1]
-    newseg <- merge(newseg, whichseg, by=c("chrom", "start", "end"))
-    newseg[, seg.len := i.end - i.start]
-    newseg[, majority := len/seg.len >= 0.5]
-    newseg <- newseg[majority==F, .(start = min(start), end = max(end)),by=.(chrom, i.start, i.end)]
-    newseg <- newseg[, .SD[,cbind(.(start = c(i.start, start, end)), .(end = c(start, end, i.end)))], by= .(chrom, start, end)]
-    setnames(newseg, c("start", "end", "V1", "V2"), c("old.start", "old.end", "start", "end"))
-    # now overlap: remove old segment(s) and replace new at the same time
-    setkey(newseg, chrom, start, end)
-    setkey(segments.many, chrom, start, end)
-    segments.many <- foverlaps(segments.many, newseg)
-    segments.many[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
-    # bug: if a new segments had the same start/end as an old one you get a segment of size zero i.e. start == end
-    segments.many <- segments.many[,.(chrom, i.start, i.end)]
-    setnames(segments.many, c("i.start", "i.end"), c("start", "end"))
+    # the following line is a segmentation security check: if there are any recurrent segments that are not represented by the 
+    # current maximally segmented data, add this segment to the list
+    # this step can likely be removed after segmentation in MosaiCatcher improves
+    segments.many <- segment.check(segments.many, recurrent.segs)
     
+    # combine the count data and the segments to get the phased state per segment
     setkey(segments.many, chrom, start, end)
     setkey(counts, chrom, start, end)
     segment.counts <-foverlaps(counts, segments.many)
     segment.counts <- segment.counts[order(cell,chrom, start, end)]
     
-    ## print how many cells had 2 or more choices?
-    segment.class <- segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .(class_ = class[which.max(nbins)]), by=.(sample, cell, chrom, start, end)]
+    ## print how many cells had 2 or more choices? 
+    # segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .N, by=.(sample, cell, chrom, start, end)][N>1]
     
-    # now making own segments again... change!
-    ## extract often-changing segments?
-    segment.class <- segment.class[order(sample, cell, chrom, start, end)]
-    segment.class$cnsc <- cumsum(segment.class[, .(consecutive = c(1,abs(diff(as.numeric(factor(class_)))))), by = .(sample, cell, chrom)]$consecutive)
-    bp.segs <- segment.class[, .SD[c(1,.N)], by=cnsc]
-    bp.segs[, c("start","end"):=.(min(start), max(end)), by=cnsc]
-    bp.segs <- bp.segs[,.SD[1], by=.(sample, cell, chrom, start, end)]
+    # majority class per segment from count data
+    segment.class <- segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .(class = class[which.max(nbins)]), by=.(sample, cell, chrom, start, end)]
+    
+    # summarize the majority class per segment by retrieving start and end for each segment
+    bp.segs <- seg.finder(segment.class)
     
     ## section may not be important ###
     bps <- bp.segs[,.N, by=.(chrom, start, end)][mixedorder(chrom)]
@@ -211,10 +155,13 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     bps.pot <- bps[N >= total.cells*0.1 & size > 1000000] # most important recurrent bps: are larger than 1 Mb, occur at least in 10% of cells
     ## remove above? ###
     
+    # assign each cell + chromosome combination a label of breakpoints
     unique.bps <- bp.segs[,unique(c(start, end)) ,by=.(cell, chrom)][, .(unique.bp = sapply(.SD, toString)), by=.(cell, chrom)]
     bp.segs <- merge(bp.segs, unique.bps)
     
+    # by using the breakpoint label unique.bp we can tell how many cells have this exact breakpoint pattern
     bp.segs[, cells.unique.bp := length(unique(cell)), by=.(chrom, unique.bp)]
+    
     # select cells where bp is <= 2 (bp occurs max twice in sample)
     #bp.segs[cells.unique.bp<=2]
     bp.segs <- merge(bp.segs, bps, by=c("chrom", "start", "end"))
@@ -222,7 +169,7 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     bp.segs[, len := end - start]
     
     bp.segs[N <= 2, c("start","end", "majority"):=.(min(start), max(end), .SD[which.max(len), class_]), by=.(cell, chrom)]
-    final.segs <- unique(bp.segs[is.na(majority) | class_==majority, .(sample, cell, chrom, start, end, class_)])
+    final.segs <- unique(bp.segs[is.na(majority) | class==majority, .(sample, cell, chrom, start, end, class)])
     
     final.segs[, label:=paste0(chrom, ":", start, "-", end)]
     final.segs[,c("H1","H2"):=.(substring(class_, 0,1), substring(class_,2))]

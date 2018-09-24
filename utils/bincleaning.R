@@ -6,7 +6,7 @@
 #' @return the count matrix with centromeric bins and bins with no reads (None bins) removed
 #' @author Alex van Vliet
 
-bincleaning <- function(count.data, blacklist) {
+clean.bins <- function(count.data, blacklist) {
   
   # start by blacklisting regions and then removing leftover None bins
   setkey(blacklist, chrom, start, end)
