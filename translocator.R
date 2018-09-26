@@ -1,13 +1,19 @@
 #' Find translocations
 #' 
-#' Find translocated chromosomal segments by correlating haplotype strand states in Mosaicatcher output. Fully vectorized approach heavily reliant on data.table.
+#' Find translocated chromosomal segments by correlating haplotype strand states in Mosaicatcher output. 
+#' Fully vectorized approach heavily reliant on data.table.
 #' 
 #' @param data.folder path to MosaiCatcher data folder
 #' @param output.folder absolute path to output folder for TranslocatoR data
 #' @param samples on which samples in the MosaiCatcher output folder would you like to run TranslocatoR
+#' @param options can take values "segments", "pq", "majority". Defaults to "segments".
+#' @param binsize which binsize to use, defaults to 100kb
 #' @param trfile list of paths to textfiles with manually determined translocation states for unbalanced translocations, must contain cell ID and approximate start/end
 #' @param regions list of regions in the format "chr#:<start>-<end>" for potential translocations
 #' @param blacklist whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
+#' 
+#' @example translocatoR(data.folder = "/g/korbel2/StrandSeq/20180727_MosiacatcherResults/all-2018-08-02", 
+#' output.folder = "/g/korbel/vliet/translocations", samples = c("RPE-BM510", "C7-data"))
 #' @return matrix
 #' 
 #' @author Alex van Vliet
@@ -16,7 +22,6 @@
 #' TODO: option to look at one or more segments (instead of seeing which segments are characterized by strand changes, get a segment and look which state it has in each chrom)
 #' TODO: return list of interesting bps/potential inversions? -> selecting from bps
 #' TODO: samples="all" to do all in the MC dir?
-
 
 ### Libraries --> move to namespace
 library(data.table)
@@ -27,8 +32,10 @@ library(dplyr) # necessary?
 library(ggplot2)
 library(stringr)
 library(discreteMTP)
+library(R.utils) # for sourcing all helpers
 
-translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L, trfile = NULL, blacklist = T) {
+translocatoR <- function(data.folder, output.folder, samples, options = "segments",
+                         binsize = 100000L, regions = NULL, trfile = NULL, blacklist = T) {
   
   ###############################
   ### File checking, initializing
@@ -37,9 +44,7 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
   # locate root directory
   root.dir <- rprojroot::find_root("translocator.R")
   # load helper functions
-  source(file.path(root.dir, "utils/helpers.R"))
-  source(file.path(root.dir, "utils/bincleaning.R"))
-  source(file.path(root.dir, "utils/phasecounts.R"))
+  sourceDirectory(file.path(root.dir, "utils"))
   
   if (blacklist == F) {
     cat("Proceeding without blacklist. This will affect performance negatively.")
@@ -78,6 +83,7 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     output.folder <- file.path(output.folder, sample)
     tryCatch({
       if(!dir.exists(file.path(output.folder))) {
+        cat("Creating sample output folder")
         dir.create(file.path(output.folder), recursive=T) }
       else {
         stop("The folder for this sample already exists. Stopping execution to prevent overwriting.") }
@@ -100,6 +106,8 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     }
     
     # read in files. uses normalized counts and assumes the exact output structure and names of MosaiCatcher
+    cat("Reading files")
+    
     tryCatch({
       counts <- fread(paste("zcat", file.path(counts.folder, paste0(binsize, "_fixed_norm.txt.gz"))))
     }, warning = function(w) {
@@ -126,7 +134,7 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     cat(paste("Analyzing", total.cells, "cells in sample", sample))
     
     # remove all None bins and centromeric bins
-    counts <- clean.bins(counts)
+    counts <- clean.bins(counts, blacklist)
     
     # combine phased data and counts data to get phased counts (flipping WC to CW where necessary)
     counts <- phase.counts(counts, phased)
@@ -180,13 +188,13 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     bp.segs <- bp.segs[order(cell, chrom, start, end)]
     bp.segs[, len := end - start]
     
-    # for breakpoints that occur <=2 times: ignore this breakpoint as it's probably an SCE and will not be useful for analysis later
+    # for breakpoints that occur <=2 times: ignore (melt into surrounding segments) this breakpoint as it's probably an SCE and will not be useful for analysis later
     bp.segs[bp.count <= 2, c("start","end", "majority"):=.(min(start), max(end), .SD[which.max(len), class]), by=.(cell, chrom)]
     final.segs <- unique(bp.segs[is.na(majority) | class==majority, .(sample, cell, chrom, start, end, class)])
     
     final.segs.H1H2 <- cast.haplotypes(final.segs)
     
-    cormat <- getcor(final.segs.H1H2) # silence warnings
+    cormat <- suppressWarnings(getcor(final.segs.H1H2)) # silence only standard deviation warnings
     
     #################################
     ## Analysis: p-value calculations
@@ -194,6 +202,7 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     
     # for every valid combination of segments (i.e. those that have shared informative cells) get the p-value
     # by applying Fisher's test to a Watson/Crick contingency table
+    cat("Starting p-value calculations")
     pvals <- sapply(1:nrow(cormat), p.helper.apply, cormat = cormat, casthaplos = final.segs.H1H2)
     pvals.dt <- as.data.table(matrix(pvals, nrow = nrow(cormat), ncol = 3, byrow = T))
     setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
@@ -201,7 +210,7 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
     pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
     pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
-    pvals <- cbind(pvals.dt, pBH)
+    pvals <- data.table(cormat, pvals.dt, pBH)
   
     pvals[, log10.p := -log10(p)]
     pvals[, B.p := p.adjust(p, "bonferroni")]
@@ -213,21 +222,21 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     ## plot by haplotype (H1-H1, H1-H2, H2-H1, H2-H2)
     
     ## Interchromosomal translocation candidates
-    tr.can <- pvals[BH.p < 0.01][str_extract(Var1, 'chr[0-9X-Y]+') != str_extract(Var2, 'chr[0-9X-Y]+')]
+    tr.can <- pvals[pBH < 0.01][str_extract(segA, 'chr[0-9X-Y]+') != str_extract(segB, 'chr[0-9X-Y]+')]
     
     ## Segments in consistent order, with lowest-number chrom first
     ## watch for chrX/Y
-    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(Var1, '\\d+')), as.numeric(str_extract(Var2, '\\d+')))]
-    tr.can[chrom1 > chrom2, c("Var2", "Var1") := .(Var1, Var2)]
-    tr.can <- tr.can[mixedorder(Var1)]
-    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(Var1, '\\d+')), as.numeric(str_extract(Var2, '\\d+')))]
+    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(segA, '\\d+')), as.numeric(str_extract(segB, '\\d+')))]
+    tr.can[chrom1 > chrom2, c("segB", "segA") := .(segA, segB)]
+    tr.can <- tr.can[mixedorder(segA)]
+    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(segA, '\\d+')), as.numeric(str_extract(segB, '\\d+')))]
     
     ## get segments back as numeric
     tr.can[, c("start.chrom1", "end.chrom1", "start.chrom2", "end.chrom2") := 
-             .(as.numeric(str_extract(Var1, '(?<=:)\\d+')), as.numeric(str_extract(Var1, '(?<=-)\\d+')), 
-               as.numeric(str_extract(Var2, '(?<=:)\\d+')), as.numeric(str_extract(Var2, '(?<=-)\\d+')))]
+             .(as.numeric(str_extract(segA, '(?<=:)\\d+')), as.numeric(str_extract(segA, '(?<=-)\\d+')), 
+               as.numeric(str_extract(segB, '(?<=:)\\d+')), as.numeric(str_extract(segB, '(?<=-)\\d+')))]
     tr.can[, plottogether := .GRP, by=.(chrom1, chrom2)]
-    tr.can[, haplo :=paste0(str_extract(Var1, "H[1-2]"), "-",str_extract(Var2, "H[1-2]"))]
+    tr.can[, haplo :=paste0(str_extract(segA, "H[1-2]"), "-",str_extract(segB, "H[1-2]"))]
     tr.can[cor > 0, posneg := "positive"]
     tr.can[cor < 0, posneg := "negative"]
     ## ggplot takes only data frames
@@ -237,8 +246,8 @@ translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L,
     update_geom_defaults("text", list(colour = "white"))
     for (i in unique(plotdf$plottogether)) {
       curpartners <- paste0(unique(plotdf[plotdf$plottogether == i,"chrom1"]),"-", unique(plotdf[plotdf$plottogether == i,"chrom2"]))
-      ggplot(plotdf[plotdf$plottogether == i,]) + geom_tile(aes(Var1, Var2, fill = posneg))+ 
-        geom_text(aes(Var1, Var2, label=formatC(as.numeric(BH.p), format = "e", digits = 2)))+
+      ggplot(plotdf[plotdf$plottogether == i,]) + geom_tile(aes(segA, segB, fill = posneg))+ 
+        geom_text(aes(segA, segB, label=formatC(as.numeric(pBH), format = "e", digits = 2)))+
         scale_fill_manual(values = c("positive" = "darkgreen", "negative" = "darkred"))+
         facet_wrap(~haplo)+
         theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 8, hjust = 1))

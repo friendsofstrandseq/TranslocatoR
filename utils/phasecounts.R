@@ -20,7 +20,7 @@ phase.counts <- function(counts, phased.segments) {
   cat("The strand inheritance before phasing:\n")
   print(counts[,prop.table(table(class))])
   cat("The strand inheritance after phasing:\n")
-  switch.counts[,prop.table(table(class))]
+  print(switch.counts[,prop.table(table(class))])
   
   return(switch.counts)
 }

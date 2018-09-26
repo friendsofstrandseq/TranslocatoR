@@ -26,8 +26,8 @@ getcor <- function(casted.haplo) {
   cor_ <- cor(casted.haplo[, !"cell"], use="pairwise.complete.obs")
   meltcor <- na.omit(melt(get_lower_tri(cor_)))
   cor.dt <- sapply(meltcor[,c(1,2)], function(x) as.character(x))
-  cor.dt <- as.data.table(cbind(cor.dt, meltcor$value))
-  setnames(cor.dt, c("Var1", "Var2", "V3"), c("segA", "segB", "cor"))
+  cor.dt <- data.table(cor.dt, meltcor$value, stringsAsFactors = F)
+  setnames(cor.dt, c("Var1", "Var2", "V2"), c("segA", "segB", "cor"))
   return(cor.dt)
 }
 
