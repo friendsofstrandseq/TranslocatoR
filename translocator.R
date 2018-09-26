@@ -2,30 +2,33 @@
 #' 
 #' Find translocated chromosomal segments by correlating haplotype strand states in Mosaicatcher output. Fully vectorized approach heavily reliant on data.table.
 #' 
-#' @param data.folder MosaiCatcher output folder
-#' @param samples on which samples in the MosaiCatcher output folder would you like to run TranslocatoR
-#' @param trfile list of textfiles with manually determined translocation states if desired, must contain cell ID and approximate start/end
+#' @param data.folder path to MosaiCatcher data folder
 #' @param output.folder absolute path to output folder for TranslocatoR data
+#' @param samples on which samples in the MosaiCatcher output folder would you like to run TranslocatoR
+#' @param trfile list of paths to textfiles with manually determined translocation states for unbalanced translocations, must contain cell ID and approximate start/end
+#' @param regions list of regions in the format "chr#:<start>-<end>" for potential translocations
 #' @param blacklist whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
 #' @return matrix
 #' 
 #' @author Alex van Vliet
 #' TODO: namespace http://r-pkgs.had.co.nz/namespace.html
 #' TODO: what happens when segment is exactly half (not majority/minority)
-#' TODO: incorporate discreteMTP calc
 #' TODO: option to look at one or more segments (instead of seeing which segments are characterized by strand changes, get a segment and look which state it has in each chrom)
-#' TODO: return list of interesting bps/potential inversions?
-#' 
+#' TODO: return list of interesting bps/potential inversions? -> selecting from bps
+#' TODO: samples="all" to do all in the MC dir?
+
+
 ### Libraries --> move to namespace
 library(data.table)
 library(gtools)
 library(GenomicRanges) # necessary?
 library(rprojroot)
-library(dplyr)
+library(dplyr) # necessary?
 library(ggplot2)
 library(stringr)
+library(discreteMTP)
 
-translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L, trfile = NULL, blacklist = T) {
+translocatoR <- function(data.folder, output.folder, samples, binsize = 100000L, trfile = NULL, blacklist = T) {
   
   ###############################
   ### File checking, initializing
@@ -48,6 +51,18 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
   # default binsize 100kb, check if integer
   if(class(binsize) != "integer") {
     binsize <- as.integer(binsize)
+  }
+  
+  if (!is.null(trfile)) {
+    translocations <- TRUE
+    for (f in trfile) {
+      tryCatch({
+        tr.tmp <- fread(file.path(f))
+        
+      }, warning = function(w) {
+        stop(paste("Can't read the translocation file", f, "you provided."))
+      })
+    }
   }
   
   data.folder <- tools::file_path_as_absolute(data.folder)
@@ -119,7 +134,7 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     ###########################################################
     ### Analysis: use MosaiCatcher segments to segment the data 
     ### and get the haplotype-aware state for each segment
-    ##########################################################
+    ###########################################################
     
     # find recurrent segments in the count data without looking at the segmented data
     seg.count <- seg.finder(counts)
@@ -138,6 +153,11 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     setkey(counts, chrom, start, end)
     segment.counts <-foverlaps(counts, segments.many)
     segment.counts <- segment.counts[order(cell,chrom, start, end)]
+    
+    #######################################################
+    ## Analysis: compare all segments to each other to find 
+    ## co-segregating segments
+    #######################################################
     
     ## print how many cells had 2 or more choices? 
     # segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .N, by=.(sample, cell, chrom, start, end)][N>1]
@@ -166,17 +186,25 @@ translocatoR <- function(data.folder, samples, output.folder, binsize = 100000L,
     
     final.segs.H1H2 <- cast.haplotypes(final.segs)
     
-    spearman.dt <- getcor(final.segs.H1H2) # silence warnings
+    cormat <- getcor(final.segs.H1H2) # silence warnings
     
-    test <- sapply(1:nrow(spearman.dt), function(x){if (x%%1000 == 0){cat(paste(x, "combinations out of", nrow(spearman.dt),"calculated\n"))}
-      p.helper(final.segs.H1H2[,.(get(spearman.dt[["Var1"]][x]), get(spearman.dt[["Var2"]][x]))])})
-    test2 <- as.data.table(matrix(test, nrow = nrow(spearman.dt), ncol = 2, byrow = T))
-    setnames(test2, c("V1", "V2"), c("or", "p"))
+    #################################
+    ## Analysis: p-value calculations
+    #################################
     
-    pvals <- cbind(spearman.dt, test2)
-    pvals[,log10.p := -log10(p)]
-    pvals[,BH.p := p.adjust(p, "BH")]
-    pvals[,B.p := p.adjust(p, "bonferroni")]
+    # for every valid combination of segments (i.e. those that have shared informative cells) get the p-value
+    # by applying Fisher's test to a Watson/Crick contingency table
+    pvals <- sapply(1:nrow(cormat), p.helper.apply, cormat = cormat, casthaplos = final.segs.H1H2)
+    pvals.dt <- as.data.table(matrix(pvals, nrow = nrow(cormat), ncol = 3, byrow = T))
+    setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
+    
+    # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
+    pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
+    pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
+    pvals <- cbind(pvals.dt, pBH)
+  
+    pvals[, log10.p := -log10(p)]
+    pvals[, B.p := p.adjust(p, "bonferroni")]
     
     #############
     ### Plotting
