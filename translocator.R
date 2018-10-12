@@ -128,6 +128,13 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
           }, warning = function(w) {print("Could not create output folder.")
       })
     
+    pval.output <- file.path(output.folder, "pvalues")
+    tryCatch({
+      dir.create(file.path(output.folder, "pvalues"))
+      }, warning = function(w) {
+        stop("Could not create output folder for p-values.")
+    })
+    
     counts.folder <- file.path(data.folder, "counts", sample)
     if(!dir.exists(counts.folder)) {
       stop(paste("The folder with read counts", counts.folder, "for sample", sample, "is not in the data folder. Stopping execution."))
@@ -170,48 +177,25 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     
     if (options == "pq") {
       
-      # uses MosaiCatcher phased by default
-      # if you want to make your own "phased", run TranslocatoR with options = "segments" first
-      phased[, c('H1','H2') := .(substring(class, 0, 1), substring(class,2))]
-      phased[, c('H1_factor','H2_factor') := .(as.numeric(factor(H1)), as.numeric(factor(H2)))]
-      cursamp.p <- phased[, .SD[1], by=.(sample, cell, chrom)]
-      cursamp.q <- phased[, .SD[.N], by=.(sample, cell, chrom)]
-      
-      # get all of the haplotypes per arm
-      cursamp.p.H1 <- cast.haplo.small(cursamp.p, 1)
-      cursamp.q.H1 <- cast.haplo.small(cursamp.q, 1)
-      cursamp.q.H2 <- cast.haplo.small(cursamp.q, 2)
-      cursamp.p.H2 <- cast.haplo.small(cursamp.p, 2)
-      
-      # rename everything so that haplotypes and arms are distinguishable
-      setnames(cursamp.p.H1, grep("chr", names(cursamp.p.H1), value=T), paste0(grep("chr", names(cursamp.p.H1), value=T), ".p.H1"))
-      setnames(cursamp.p.H2, grep("chr", names(cursamp.p.H2), value=T), paste0(grep("chr", names(cursamp.p.H2), value=T), ".p.H2"))
-      setnames(cursamp.q.H1, grep("chr", names(cursamp.q.H1), value=T), paste0(grep("chr", names(cursamp.q.H1), value=T), ".q.H1"))
-      setnames(cursamp.q.H2, grep("chr", names(cursamp.q.H2), value=T), paste0(grep("chr", names(cursamp.q.H2), value=T), ".q.H2"))
-      
-      # make one big data.table out of the four haplotype/arm combinations
-      cursamp.pqH1H2 <- merge(cursamp.p.H1, cursamp.p.H2, all = T)
-      cursamp.pqH1H2 <- merge(cursamp.pqH1H2, cursamp.q.H1, all = T)
-      cursamp.pqH1H2 <- merge(cursamp.pqH1H2, cursamp.q.H2, all = T)
+      phased.pq <- gethaplopq(phased)
       
       if (translocations == T) {
-        cursamp.pqH1H2 <- merge(cursamp.pqH1H2, get(paste0(sample.name),".tr")[, -"sample"], by = "cell", all.x=T)
+        tryCatch({
+          phased.pq <- merge(phased.pq, get(paste0(sample.name),".tr")[, -"sample"], by = "cell", all.x=T)
+        }, warning = function(w){
+          stop("Check that the 'sample' column of your translocations file matches the 'sample' column used by MosaiCatcher.")
+        })
       }
       
-      cormat <- suppressWarnings(getcor(cursamp.pqH1H2))
-      pvals <- sapply(1:nrow(cormat), p.helper.apply, cormat = cormat, casthaplos = TALL03pqH1H2)
-      pvals.dt <- as.data.table(matrix(pvals, nrow = nrow(cormat), ncol = 3, byrow = T))
-      setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
-      
-      # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
-      cat("FDR-adjusting...")
-      pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
-      pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
-      pvals <- data.table(cormat, pvals.dt, pBH)
+      p.values <- get.pvalue.dt(phased.pq)
       
       ###########
       ## Output
       ###########
+      
+      write.table(p.values, file.path(pval.output, "significance-table.txt"), quote = F, row.names = F)
+      write.table(phased.pq, file.path(output.folder, "haplotypes-per-arm.txt"), quote = F, row.names = F)
+    
     }
     if (options == "segments") {
       #################################
@@ -283,33 +267,18 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
       
       final.segs.H1H2 <- cast.haplotypes(final.segs)
       
-      cormat <- suppressWarnings(getcor(final.segs.H1H2)) # TODO: silence only standard deviation warnings
-      
       #################################
       ## Analysis: p-value calculations
       #################################
       
-      # for every valid combination of segments (i.e. those that have shared informative cells) get the p-value
-      # by applying Fisher's test to a Watson/Crick contingency table
-      cat("Starting p-value calculations...")
-      pvals <- sapply(1:nrow(cormat), p.helper.apply, cormat = cormat, casthaplos = final.segs.H1H2)
-      pvals.dt <- as.data.table(matrix(pvals, nrow = nrow(cormat), ncol = 3, byrow = T))
-      setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
-      
-      # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
-      cat("FDR-adjusting...")
-      pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
-      pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
-      pvals <- data.table(cormat, pvals.dt, pBH)
-      
-      pvals[, log10.p := -log10(p)]
-      pvals[, B.p := p.adjust(p, "bonferroni")]
+      p.values <- get.pvalue.dt(final.segs.H1H2)
       
       #############
       ## Output
       #############
     
-      write.table()
+      write.table(p.values, file.path(pval.output, "significance-table.txt"), quote = F, row.names = F)
+      write.table(final.segs.H1H2, file.path(output.folder, "haplotypes-per-segment.txt"), quote = F, row.names = F)
     
     # option: segment if statement  
     }

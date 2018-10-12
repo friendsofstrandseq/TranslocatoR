@@ -25,3 +25,10 @@ cast.haplotypes <- function(segs) {
   
   return(segs.H1H2)
 }
+
+## This is a similar function for pq analysis
+cast.haplo.small <- function(final, haplo){
+  tmp <- dcast(final, cell~chrom,value.var = paste0('H',haplo,'_factor'), drop=F)
+  setcolorder(tmp, mixedsort(names(tmp)))
+  return(tmp)
+}

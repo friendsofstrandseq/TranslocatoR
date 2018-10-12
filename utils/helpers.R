@@ -61,3 +61,18 @@ p.helper.apply <- function(cormat, casthaplos, x) {
   p.helper.cdf(casthaplos[,.(get(cormat[["segA"]][x]), get(cormat[["segB"]][x]))])
 }
 
+get.pvalue.dt <- function(factordt) {
+  # TODO: suppress only stdev warnings
+  cormat <- suppressWarnings(getcor(factordt))
+  pvals <- sapply(1:nrow(cormat), p.helper.apply, cormat = cormat, casthaplos = factordt)
+  pvals.dt <- as.data.table(matrix(pvals, nrow = nrow(cormat), ncol = 3, byrow = T))
+  setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
+  
+  # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
+  cat("FDR-adjusting...")
+  pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
+  pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
+  pvals <- data.table(cormat, pvals.dt, pBH)
+  
+  return(pvals)
+}
