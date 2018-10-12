@@ -5,6 +5,8 @@
 #' 
 #' @return mc.segments with new segments added if necessary
 #' @author Alex van Vliet
+#' 
+#' TODO: majority: >= 0.5 so must be in line with rest of code
 
 segment.check <- function(mc.segments, rec.segments) {
   
@@ -22,20 +24,29 @@ segment.check <- function(mc.segments, rec.segments) {
   newseg <- merge(newseg, whichseg, by=c("chrom", "start", "end"))
   newseg[, seg.len := i.end - i.start]
   newseg[, majority := len/seg.len >= 0.5]
-  newseg <- newseg[majority==F, .(start = min(start), end = max(end)),by=.(chrom, i.start, i.end)]
-  newseg <- newseg[, .SD[,cbind(.(start = c(i.start, start, end)), .(end = c(start, end, i.end)))], by= .(chrom, start, end)]
-  setnames(newseg, c("start", "end", "V1", "V2"), c("old.start", "old.end", "start", "end"))
   
-  # now overlap: remove old segment(s) and replace new at the same time
-  setkey(newseg, chrom, start, end)
-  setkey(segments.many, chrom, start, end)
-  segments.many <- foverlaps(segments.many, newseg)
-  segments.many[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
+  # if there are new segments that are not represented by MC segmentation: incorporate those
+  if (newseg[, !all(majority)]) {
+    newseg <- newseg[majority==F, .(start = min(start), end = max(end)),by=.(chrom, i.start, i.end)]
+    newseg <- newseg[, .SD[,cbind(.(start = c(i.start, start, end)), .(end = c(start, end, i.end)))], by= .(chrom, start, end)]
+    setnames(newseg, c("start", "end", "V1", "V2"), c("old.start", "old.end", "start", "end"))
+    
+    # now overlap: remove old segment(s) and replace new at the same time
+    setkey(newseg, chrom, start, end)
+    setkey(segments.many, chrom, start, end)
+    segments.many <- foverlaps(segments.many, newseg)
+    segments.many[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
+    
+    # bug: if a new segments had the same start/end as an old one you get a segment of size zero i.e. start == end
+    # will be resolved after overlaps in the next stage
+    segments.many <- unique(segments.many[,.(chrom, i.start, i.end)])
+    setnames(segments.many, c("i.start", "i.end"), c("start", "end"))
+    
+    return(segments.many)
+  }
   
-  # bug: if a new segments had the same start/end as an old one you get a segment of size zero i.e. start == end
-  # will be resolved after overlaps in the next stage
-  segments.many <- unique(segments.many[,.(chrom, i.start, i.end)])
-  setnames(segments.many, c("i.start", "i.end"), c("start", "end"))
+  else {
+    return(segments.many)
+  }
   
-  return(segments.many)
 }
