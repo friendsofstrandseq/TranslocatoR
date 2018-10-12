@@ -36,6 +36,7 @@ library(ggplot2)
 library(stringr)
 library(discreteMTP)
 library(R.utils) # for sourcing all helpers
+library(assertthat)
 
 translocatoR <- function(data.folder, output.folder, samples, options = "segments",
                          binsize = 100000L, regions = NULL, trfile = NULL, blacklist = T) {
@@ -78,35 +79,14 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
       assign(paste0(sample.name, ".tr"), tr.tmp)
     }
   }
-  ### solution for reading trfile?
-  getroworder <- function(states, tr){
-    roworder <- match(states[,cell], get(tr)[,cell])
-    return(roworder)
-  }
-  cast.haplos <- function(states, trstates, haplo){
-    tmp <- dcast(states, cell~chrom,value.var = paste0('H',haplo,'_factor'), drop=F)
-    for (x in trstates) {
-      tmp <- cbind(tmp, get(x)[getroworder(tmp, x), tr_factor])
-      setnames(tmp, "V2", x)
-    }
-    setcolorder(tmp, mixedsort(colnames(tmp)))
-    return(tmp)
-  }
   
-  cast.haplos <- function(states, trstates, haplo){
-    tmp <- dcast(states, cell~chrom,value.var = paste0('H',haplo,'_factor'), drop=F)
-    tmp <- tmp[mixedorder(cell)]
-    setcolorder(tmp, mixedsort(colnames(tmp)))
-    # first column is always cell
-    whichtr <- names(trstates)
-    trstates <- trstates[mixedorder(trstates)]
-    for (x in 2:ncol(trstates)) {
-      tmp <- merge(tmp, trstates[, .(cell, get(whichtr[x]))], by="cell", all.x=T)
-      setnames(tmp, "V2", whichtr[x])
-    }
-    return(tmp)
+  if (!is.null(regions)) {
+    use.regions <- TRUE
+    assert_that("chrom" %in% colnames(regions))
+    assert_that("sample" %in% colnames(regions))
+    assert_that("start" %in% colnames(regions))
+    assert_that("end" %in% colnames(regions))
   }
-  ### end solution ###
   
   data.folder <- tools::file_path_as_absolute(data.folder)
   if(!dir.exists(data.folder)){
@@ -116,9 +96,9 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     cat(paste("Data folder is", data.folder))
   }
   
-  for (sample in samples) {
+  for (cursample in samples) {
     
-    output.folder <- file.path(output.folder, sample)
+    output.folder <- file.path(output.folder, cursample)
     tryCatch({
       if(!dir.exists(file.path(output.folder))) {
         cat("Creating sample output folder")
@@ -135,19 +115,19 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
         stop("Could not create output folder for p-values.")
     })
     
-    counts.folder <- file.path(data.folder, "counts", sample)
+    counts.folder <- file.path(data.folder, "counts", cursample)
     if(!dir.exists(counts.folder)) {
-      stop(paste("The folder with read counts", counts.folder, "for sample", sample, "is not in the data folder. Stopping execution."))
+      stop(paste("The folder with read counts", counts.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
     }
     
-    phased.folder <- file.path(data.folder, "strand_states", sample)
+    phased.folder <- file.path(data.folder, "strand_states", cursample)
     if(!dir.exists(phased.folder)) {
-      stop(paste("The folder with phased haplotypes", phased.folder, "for sample", sample, "is not in the data folder. Stopping execution."))
+      stop(paste("The folder with phased haplotypes", phased.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
     }
     
-    segments.folder <- file.path(data.folder, "segmentation", sample)
+    segments.folder <- file.path(data.folder, "segmentation", cursample)
     if(!dir.exists(segments.folder)) {
-      stop(paste("The folder with segments", segments.folder, "for sample", sample, "is not in the data folder. Stopping execution."))
+      stop(paste("The folder with segments", segments.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
     }
     
     # read in files. uses normalized counts and assumes the exact output structure and names of MosaiCatcher
@@ -172,7 +152,7 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     })
     
     #####################
-    ## Start analysis
+    ## Analysis: pq + suspected translocation file
     #####################
     
     if (options == "pq") {
@@ -187,6 +167,25 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
         })
       }
       
+      # if a 'regions' file is provided, use those to make extra potential translocations
+      if (regions == T) {
+        regions.cursample <- regions[sample == cursample]
+        setkey(regions.cursample, chrom, start, end)
+        setkey(phased, chrom, start, end)
+        overlaps <- foverlaps(phased, regions.cursample)
+        
+        overlaps[!is.na(sample), grp := .GRP, by=.(chrom, start, end)]
+        overlaps <- overlaps[!is.na(grp)]
+        overlaps[, label := paste0(chrom, ":", start, "-", end)]
+        overlaps[, startdiff := abs(start - i.start)]
+        overlaps[, enddiff := abs(end - i.end)]
+        overlaps[, totaldiff := startdiff+enddiff]
+        overlaps <- overlaps[, .SD[which.min(totaldiff)], by=.(cell, chrom, start, end)]
+        translos <- dcast(overlaps, cell~label, value.var = "class", fill=NA)
+        
+        merge(phased, translos, by = "cell")
+      }
+      
       p.values <- get.pvalue.dt(phased.pq)
       
       ###########
@@ -197,6 +196,7 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
       write.table(phased.pq, file.path(output.folder, "haplotypes-per-arm.txt"), quote = F, row.names = F)
     
     }
+    
     if (options == "segments") {
       #################################
       ## Analysis: cleaning and phasing
@@ -279,6 +279,7 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     
       write.table(p.values, file.path(pval.output, "significance-table.txt"), quote = F, row.names = F)
       write.table(final.segs.H1H2, file.path(output.folder, "haplotypes-per-segment.txt"), quote = F, row.names = F)
+      write.table(recurrent.segs, file.path(output.folder, "recurrent-segments.txt"), quote = F, row.names = F)
     
     # option: segment if statement  
     }
@@ -287,40 +288,6 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     ### Plotting
     #############
     
-    ## plot by haplotype (H1-H1, H1-H2, H2-H1, H2-H2)
-    
-    ## Interchromosomal translocation candidates
-    tr.can <- pvals[pBH < 0.01][str_extract(segA, 'chr[0-9X-Y]+') != str_extract(segB, 'chr[0-9X-Y]+')]
-    
-    ## Segments in consistent order, with lowest-number chrom first
-    ## watch for chrX/Y
-    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(segA, '\\d+')), as.numeric(str_extract(segB, '\\d+')))]
-    tr.can[chrom1 > chrom2, c("segB", "segA") := .(segA, segB)]
-    tr.can <- tr.can[mixedorder(segA)]
-    tr.can[, c("chrom1", "chrom2") := .(as.numeric(str_extract(segA, '\\d+')), as.numeric(str_extract(segB, '\\d+')))]
-    
-    ## get segments back as numeric
-    tr.can[, c("start.chrom1", "end.chrom1", "start.chrom2", "end.chrom2") := 
-             .(as.numeric(str_extract(segA, '(?<=:)\\d+')), as.numeric(str_extract(segA, '(?<=-)\\d+')), 
-               as.numeric(str_extract(segB, '(?<=:)\\d+')), as.numeric(str_extract(segB, '(?<=-)\\d+')))]
-    tr.can[, plottogether := .GRP, by=.(chrom1, chrom2)]
-    tr.can[, haplo :=paste0(str_extract(segA, "H[1-2]"), "-",str_extract(segB, "H[1-2]"))]
-    tr.can[cor > 0, posneg := "positive"]
-    tr.can[cor < 0, posneg := "negative"]
-    ## ggplot takes only data frames
-    plotdf <- setDF(tr.can)
-    
-    ## updating defaults is the only way to get the text to change colour
-    update_geom_defaults("text", list(colour = "white"))
-    for (i in unique(plotdf$plottogether)) {
-      curpartners <- paste0(unique(plotdf[plotdf$plottogether == i,"chrom1"]),"-", unique(plotdf[plotdf$plottogether == i,"chrom2"]))
-      ggplot(plotdf[plotdf$plottogether == i,]) + geom_tile(aes(segA, segB, fill = posneg))+ 
-        geom_text(aes(segA, segB, label=formatC(as.numeric(pBH), format = "e", digits = 2)))+
-        scale_fill_manual(values = c("positive" = "darkgreen", "negative" = "darkred"))+
-        facet_wrap(~haplo)+
-        theme(axis.text.x = element_text(angle = 45, vjust = 1,size = 8, hjust = 1))
-      ggsave(filename = paste0(sample, "_co-segregation_", curpartners,".pdf"), plot = last_plot(), path = output.folder)
-    }
     ## sample loop 
   }
   
