@@ -9,7 +9,7 @@ output folder that contains your sample(s) of choice. TranslocatoR assumes that
 the input directory has the exact structure of the MosaiCatcher output, so if you
 want to test something or supply different files, you'll have to mimic the
 following structure:
-|\_\_\<\your folder\>
+|\_\_\<your folder>
     |\_\_strand\_states
         |\_\_<\sample ID\>
             |\_\_<\your file\>
