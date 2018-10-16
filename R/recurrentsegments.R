@@ -4,6 +4,8 @@
 #' 
 #' @return a list of recurrent segments that are not whole chromosomes and at least 1Mb long
 #' @author Alex van Vliet
+#' 
+#' @export
 
 rec.seg <- function(counts.seg) {
   

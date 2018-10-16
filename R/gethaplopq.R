@@ -5,6 +5,8 @@
 #' @return data.table with all haplotype/arm combinations
 #' 
 #' @author Alex van Vliet
+#' 
+#' @export
 
 gethaplopq <- function(phased) {
   

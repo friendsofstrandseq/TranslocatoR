@@ -4,6 +4,8 @@
 #' 
 #' @return a matrix where the rows are cells and the columns are recurrent segments for each haplotype
 #' @author Alex van Vliet
+#' 
+#' @export
 
 cast.haplotypes <- function(segs) {
   

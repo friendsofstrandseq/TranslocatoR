@@ -6,7 +6,10 @@
 #' @return mc.segments with new segments added if necessary
 #' @author Alex van Vliet
 #' 
-#' TODO: majority: >= 0.5 so must be in line with rest of code
+#' @export
+#' 
+
+# TODO: majority: >= 0.5 so must be in line with rest of code
 
 segment.check <- function(mc.segments, rec.segments) {
   

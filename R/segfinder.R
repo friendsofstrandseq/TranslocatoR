@@ -4,6 +4,8 @@
 #'
 #' @return a list of breakpoints where strand state changes take place
 #' @author Alex van Vliet
+#' 
+#' @export
 
 seg.finder <- function(m) {
   

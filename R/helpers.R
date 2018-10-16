@@ -1,4 +1,8 @@
-### mathematical TranslocatoR helpers
+#' mathematical TranslocatoR helpers
+#' 
+#' @author Alex van Vliet
+#' 
+#' @export
 
 # deprecated function
 p.helper <- function(x) {
@@ -69,7 +73,7 @@ get.pvalue.dt <- function(factordt) {
   setnames(pvals.dt, c("V1", "V2", "V3"), c("p", "x", "n"))
   
   # apply FDR correction (Benjamini-Hochberg) for discrete p-values following a binomial distribution
-  cat("FDR-adjusting...")
+  cat("FDR-adjusting...\n")
   pCDFlist <- lapply(1:nrow(pvals.dt), function(i){pbinom(0:pvals.dt[i, x], pvals.dt[i, n], 0.5)})
   pBH <- p.discrete.adjust(pvals.dt[,p], pCDFlist, method = "BH")
   pvals <- data.table(cormat, pvals.dt, pBH)

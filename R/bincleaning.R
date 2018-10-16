@@ -5,6 +5,8 @@
 #' 
 #' @return the count matrix with centromeric bins and bins with no reads (None bins) removed
 #' @author Alex van Vliet
+#' 
+#' @export
 
 clean.bins <- function(counts, blacklist) {
   

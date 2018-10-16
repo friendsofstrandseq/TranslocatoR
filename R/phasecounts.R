@@ -6,6 +6,7 @@
 #' @return count matrix with WC -> CW as computed by StrandPhaseR
 #' @author Alex van Vliet
 #' 
+#' @export
 
 phase.counts <- function(counts, phased.segments) {
   

@@ -3,11 +3,19 @@
 #' Find translocated chromosomal segments by correlating haplotype strand states in Mosaicatcher output. 
 #' Fully vectorized approach heavily reliant on data.table.
 #' 
+#' @import data.table
+#' @import gtools
+#' @import ggplot2
+#' @import stringr
+#' @import discreteMTP
+#' @import assertthat
+#'
 #' @param data.folder path to MosaiCatcher data folder
 #' @param output.folder absolute path to output folder for TranslocatoR data
 #' @param samples on which samples in the MosaiCatcher output folder would you like to run TranslocatoR
 #' @param options can take values "segments", "pq", "majority". Defaults to "segments".
 #' @param binsize which binsize to use, defaults to 100kb
+#' @param cutoff cutoff for significant FDR-corrected p-values, defaults to 0.01
 #' @param trfile path to txt file with a suspected translocation. 
 #' Can contain multiple translocations for one sample in separate columns, 
 #' can also be a list of files for different samples. 
@@ -15,46 +23,37 @@
 #' @param regions list of regions in the format "chr#:<start>-<end>" for potential translocations
 #' @param blacklist whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
 #' 
-#' @example translocatoR(data.folder = "/g/korbel2/StrandSeq/20180727_MosiacatcherResults/all-2018-08-02", 
-#' output.folder = "/g/korbel/vliet/translocations", samples = c("RPE-BM510", "C7-data"))
+#' @examples
+#' translocatoR(data.folder = "/g/korbel2/StrandSeq/20180727_MosiacatcherResults/all-2018-08-02", output.folder = "/g/korbel/vliet/translocations", samples = c("RPE-BM510", "C7-data"))
 #' @return matrix
 #' 
 #' @author Alex van Vliet
-#' TODO: namespace http://r-pkgs.had.co.nz/namespace.html
-#' TODO: what happens when segment is exactly half (not majority/minority)
-#' TODO: option to look at one or more segments (instead of seeing which segments are characterized by strand changes, get a segment and look which state it has in each chrom)
-#' TODO: return list of interesting bps/potential inversions? -> selecting from bps
-#' TODO: samples="all" to do all in the MC dir?
+#' 
+#' @export
 
-### Libraries --> move to namespace
-library(data.table)
-library(gtools)
-library(GenomicRanges) # necessary?
-library(rprojroot)
-library(dplyr) # necessary?
-library(ggplot2)
-library(stringr)
-library(discreteMTP)
-library(R.utils) # for sourcing all helpers
-library(assertthat)
+# TODO: namespace http://r-pkgs.had.co.nz/namespace.html
+# TODO: what happens when segment is exactly half (not majority/minority)
+# TODO: option to look at one or more segments (instead of seeing which segments are characterized by strand changes, get a segment and look which state it has in each chrom)
+# TODO: return list of interesting bps/potential inversions? -> selecting from bps
+# TODO: samples="all" to do all in the MC dir?
+# 
+
 
 translocatoR <- function(data.folder, output.folder, samples, options = "segments",
-                         binsize = 100000L, regions = NULL, trfile = NULL, blacklist = T) {
+                         binsize = 100000L, cutoff = 0.01, regions = NULL, trfile = NULL, blacklist = T) {
   
   ###############################
   ### File checking, initializing
   ###############################
   
-  # locate root directory
-  root.dir <- rprojroot::find_root("translocator.R")
-  # load helper functions
-  sourceDirectory(file.path(root.dir, "utils"))
+  # locate data directory
+  translocator.data <- system.file(package = "TranslocatoR", "data", mustWork = T)
   
   if (blacklist == F) {
-    cat("Proceeding without blacklist. This will affect performance negatively.")
+    cat("Proceeding without blacklist. This will affect performance negatively.\n")
   }
   else {
-    blacklist <- fread(file.path(root.dir, "data/blacklist.txt"))
+    blacklist <- fread(file.path(translocator.data, "blacklist.txt"))
   }
   
   # default binsize 100kb, integer to prevent scientific notation
@@ -62,17 +61,19 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     binsize <- as.integer(binsize)
   }
   
+  translocations <- FALSE
+  
   if (!is.null(trfile)) {
     translocations <- TRUE
     for (f in trfile) {
       tryCatch({
         tr.tmp <- fread(file.path(f))
       }, warning = function(w) {
-        stop(paste("Can't read the translocation file", f, "you provided."))
+        stop(paste("Can't read the translocation file", f, "you provided.\n"))
       })
       # TODO: assertthat columns
       if (tr.tmp[, length(unique(sample))] != 1) {
-        stop("Your translocation file contains more than one sample name in the sample column.")
+        stop("Your translocation file contains more than one sample name in the sample column.\n")
       }
       sample.name <- tr.tmp[, unique(sample)]
       # name the translocation dt after the sample
@@ -80,75 +81,60 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     }
   }
   
+  use.regions <- FALSE
+  
   if (!is.null(regions)) {
     use.regions <- TRUE
-    assert_that("chrom" %in% colnames(regions))
-    assert_that("sample" %in% colnames(regions))
-    assert_that("start" %in% colnames(regions))
-    assert_that("end" %in% colnames(regions))
+    tryCatch({
+      regions.f <- fread(file.path(regions))
+    }, warning = function(w) {
+      stop(paste("Can't read the regions file", f, "you provided.\n"))
+    })
+    assert_that("chrom" %in% colnames(regions.f))
+    assert_that("sample" %in% colnames(regions.f))
+    assert_that("start" %in% colnames(regions.f))
+    assert_that("end" %in% colnames(regions.f))
   }
   
   data.folder <- tools::file_path_as_absolute(data.folder)
   if(!dir.exists(data.folder)){
-    stop("Please check that you provided the correct path for the data folder. Stopping execution.")
+    stop("Please check that you provided the correct path for the data folder. Stopping execution.\n")
   }
   else{
-    cat(paste("Data folder is", data.folder))
+    cat(paste("Data folder is", data.folder, "\n"))
   }
   
   for (cursample in samples) {
     
-    output.folder <- file.path(output.folder, cursample)
+    cat(paste("Current sample is", cursample, "\n"))
+    output.folder.cursamp <- file.path(output.folder, cursample)
     tryCatch({
-      if(!dir.exists(file.path(output.folder))) {
-        cat("Creating sample output folder")
-        dir.create(file.path(output.folder), recursive=T) }
-      else {
-        stop("The folder for this sample already exists. Stopping execution to prevent overwriting.") }
-          }, warning = function(w) {print("Could not create output folder.")
-      })
-    
-    pval.output <- file.path(output.folder, "pvalues")
-    tryCatch({
-      dir.create(file.path(output.folder, "pvalues"))
-      }, warning = function(w) {
-        stop("Could not create output folder for p-values.")
+      if(!dir.exists(file.path(output.folder.cursamp))) {
+        cat("Creating sample output folder\n")
+        dir.create(file.path(output.folder.cursamp), recursive=T) }
+    }, warning = function(w) {print("Could not create output folder.")
     })
     
-    counts.folder <- file.path(data.folder, "counts", cursample)
-    if(!dir.exists(counts.folder)) {
-      stop(paste("The folder with read counts", counts.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
-    }
+    pval.output <- file.path(output.folder.cursamp, "pvalues")
+    tryCatch({
+      if (!dir.exists(file.path(output.folder.cursamp, "pvalues"))) {
+        dir.create(file.path(output.folder.cursamp, "pvalues")) }
+      }, warning = function(w) {
+        stop("Could not create output folder for p-values.\n")
+      })
     
     phased.folder <- file.path(data.folder, "strand_states", cursample)
     if(!dir.exists(phased.folder)) {
-      stop(paste("The folder with phased haplotypes", phased.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
+      stop(paste("The folder with phased haplotypes", phased.folder, "for sample", cursample, "is not in the data folder. Stopping execution.\n"))
     }
-    
-    segments.folder <- file.path(data.folder, "segmentation", cursample)
-    if(!dir.exists(segments.folder)) {
-      stop(paste("The folder with segments", segments.folder, "for sample", cursample, "is not in the data folder. Stopping execution."))
-    }
-    
-    # read in files. uses normalized counts and assumes the exact output structure and names of MosaiCatcher
-    cat("Reading files")
-    ## TODO: if ends in .gz, zcat otherwise read txt
-    tryCatch({
-      counts <- fread(paste("zcat", file.path(counts.folder, paste0(binsize, "_fixed_norm.txt.gz"))))
-    }, warning = function(w) {
-      stop(paste("Can't unzip and/or read the counts file", paste0(binsize, "_fixed_norm.txt.gz")))
-    })
+  
+    # read in files. uses normalized counts and assumes the exact output structure and directory names of MosaiCatcher
+    cat("Reading files\n")
     
     tryCatch({
       phased <- fread(file.path(phased.folder, "final.txt"))
     }, warning = function(w) {
-      stop(paste("Can't read the phased counts file final.txt in", phased.folder))
-    })
-    
-    tryCatch({
-      segments <- fread(file.path(segments.folder, paste0(binsize, "_fixed_norm.txt")))
-    }, warning = function(w) {
-      stop(paste("Can't read the segments file", paste0(binsize, "_fixed_norm.txt"), "in", segments.folder))
+      stop(paste("Can't read the phased counts file final.txt in", phased.folder, "\n"))
     })
     
     #####################
@@ -157,47 +143,74 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
     
     if (options == "pq") {
       
+      cat("Starting analysis\n")
       phased.pq <- gethaplopq(phased)
       
       if (translocations == T) {
+        
         tryCatch({
-          phased.pq <- merge(phased.pq, get(paste0(sample.name),".tr")[, -"sample"], by = "cell", all.x=T)
+          phased.pq <- merge(phased.pq, get(paste0(cursample,".tr"))[, -"sample"], by = "cell", all.x=T)
         }, warning = function(w){
-          stop("Check that the 'sample' column of your translocations file matches the 'sample' column used by MosaiCatcher.")
+          stop("Check that the 'sample' column of your translocations file matches the 'sample' column used by MosaiCatcher.\n")
         })
       }
       
       # if a 'regions' file is provided, use those to make extra potential translocations
-      if (regions == T) {
-        regions.cursample <- regions[sample == cursample]
-        setkey(regions.cursample, chrom, start, end)
-        setkey(phased, chrom, start, end)
-        overlaps <- foverlaps(phased, regions.cursample)
+      if (use.regions == T) {
         
-        overlaps[!is.na(sample), grp := .GRP, by=.(chrom, start, end)]
-        overlaps <- overlaps[!is.na(grp)]
-        overlaps[, label := paste0(chrom, ":", start, "-", end)]
-        overlaps[, startdiff := abs(start - i.start)]
-        overlaps[, enddiff := abs(end - i.end)]
-        overlaps[, totaldiff := startdiff+enddiff]
-        overlaps <- overlaps[, .SD[which.min(totaldiff)], by=.(cell, chrom, start, end)]
-        translos <- dcast(overlaps, cell~label, value.var = "class", fill=NA)
+        regions.cursample <- regions.f[sample == cursample]
+        translos <- region.to.tr(regions.cursample, phased)
         
-        merge(phased, translos, by = "cell")
+        # convert translocation file to factors
+        names <- colnames(translos[, -"cell"])
+        translos[, paste0(names, ".H1") := lapply(.SD, function(x) {as.numeric(factor(substring(x, 0, 1)))}), .SDcols = names]
+        translos[, paste0(names, ".H2") := lapply(.SD, function(x) {as.numeric(factor(substring(x, 2)))}), .SDcols = names]
+        
+        phased.pq <- merge(phased.pq, translos[, .SD, .SDcols = names(translos) %like% ".H[1-2]" | names(translos) %like% "cell"], by = "cell")
       }
       
       p.values <- get.pvalue.dt(phased.pq)
+      potential.tr <- p.values[str_extract(segA, "chr[0-9X-Y]") != str_extract(segB, "chr[0-9X-Y]")][pBH < cutoff]
       
       ###########
       ## Output
       ###########
       
+      cat("Writing output files\n")
       write.table(p.values, file.path(pval.output, "significance-table.txt"), quote = F, row.names = F)
-      write.table(phased.pq, file.path(output.folder, "haplotypes-per-arm.txt"), quote = F, row.names = F)
+      write.table(potential.tr, file.path(pval.output, "co-segregations.txt"), quote = F, row.names = F)
+      write.table(phased.pq, file.path(output.folder.cursamp, "haplotypes-per-arm.txt"), quote = F, row.names = F)
     
-    }
+    } # option = pq if statement
     
     if (options == "segments") {
+      
+      ###############
+      ## File checking and reading
+      ###############
+      
+      counts.folder <- file.path(data.folder, "counts", cursample)
+      if(!dir.exists(counts.folder)) {
+        stop(paste("The folder with read counts", counts.folder, "for sample", cursample, "is not in the data folder. Stopping execution.\n"))
+      }
+      
+      segments.folder <- file.path(data.folder, "segmentation", cursample)
+      if(!dir.exists(segments.folder)) {
+        stop(paste("The folder with segments", segments.folder, "for sample", cursample, "is not in the data folder. Stopping execution.\n"))
+      }
+      
+      tryCatch({
+        counts <- fread(paste("zcat", file.path(counts.folder, paste0(binsize, "_fixed_norm.txt.gz"))))
+      }, warning = function(w) {
+        stop(paste("Can't unzip and/or read the counts file", paste0(binsize, "_fixed_norm.txt.gz\n")))
+      })
+      
+      tryCatch({
+        segments <- fread(file.path(segments.folder, paste0(binsize, "_fixed_norm.txt")))
+      }, warning = function(w) {
+        stop(paste("Can't read the segments file", paste0(binsize, "_fixed_norm.txt"), "in", segments.folder, "\n"))
+      })
+      
       #################################
       ## Analysis: cleaning and phasing
       #################################
@@ -238,9 +251,6 @@ translocatoR <- function(data.folder, output.folder, samples, options = "segment
       ## Analysis: compare all segments to each other to find 
       ## co-segregating segments
       #######################################################
-      
-      ## print how many cells had 2 or more choices? 
-      # segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .N, by=.(sample, cell, chrom, start, end)][N>1]
       
       # majority class per segment from count data
       segment.class <- segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .(class = class[which.max(nbins)]), by=.(sample, cell, chrom, start, end)]
