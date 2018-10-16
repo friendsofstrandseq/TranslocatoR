@@ -20,8 +20,7 @@ following structure:
 ```
 ## Options
 You can run TranslocatoR with different options. ```pq``` takes the strand state for
-the end of each arm and compares them all to each other. ```majority``` does the same
-but for the majority state of each chromosome. ```segments``` automatically identifies
+the end of each arm and compares them all to each other. ```segments``` automatically identifies
 all recurring segments in a library and compares them to each other. This is useful
 for very complex events.
 
