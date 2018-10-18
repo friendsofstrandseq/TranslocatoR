@@ -27,10 +27,10 @@ for very complex events.
 ## Providing your own files
 If you suspect a non-reciprocal translocation, you can pass TranslocatoR a file
 ```trfile```that contains the manually-identified strand state of the translocation for each
-cell. This file must contain a 'sample' column, a 'cell' column, and a 'state' 
-column. An example:
+cell. This file must contain a 'sample' column, a 'cell' column, and one or more columns containing the state for the translocation(s).
+Give these columns descriptive names containing the chromosome number/letter in the format 'chr<[0-9X-Y]>' for later reference. An example:
 
-| sample | cell | state |
+| sample | cell | chr10tr |
 |--------|------|-------|
 |RPE-BM510|BM510_20306| C|
 |RPE-BM510|BM510_20310| W|
