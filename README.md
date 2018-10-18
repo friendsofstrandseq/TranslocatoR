@@ -40,5 +40,5 @@ Each file cannot contain more than one sample, but you can provide different fil
 for different samples.
 
 If you want to examine one or more specific regions, you can provide a ```regions``` file
-containing four columns: 'sample', 'cell', 'start' and 'end'.
+containing four columns: 'sample', 'chrom', 'start' and 'end'.
 This file can contains different regions for different samples, just make sure your sample names match those used by MosaiCatcher.
