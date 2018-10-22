@@ -36,20 +36,20 @@ segment.check <- function(mc.segments, rec.segments) {
     
     # now overlap: remove old segment(s) and replace new at the same time
     setkey(newseg, chrom, start, end)
-    setkey(segments.many, chrom, start, end)
-    segments.many <- foverlaps(segments.many, newseg)
-    segments.many[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
+    setkey(mc.segments, chrom, start, end)
+    mc.segments <- foverlaps(mc.segments, newseg)
+    mc.segments[start >= i.start & end <= i.end, c("i.start", "i.end"):=.(start, end)]
     
     # bug: if a new segments had the same start/end as an old one you get a segment of size zero i.e. start == end
     # will be resolved after overlaps in the next stage
-    segments.many <- unique(segments.many[,.(chrom, i.start, i.end)])
-    setnames(segments.many, c("i.start", "i.end"), c("start", "end"))
+    mc.segments <- unique(mc.segments[,.(chrom, i.start, i.end)])
+    setnames(mc.segments, c("i.start", "i.end"), c("start", "end"))
     
-    return(segments.many)
+    return(mc.segments)
   }
   
   else {
-    return(segments.many)
+    return(mc.segments)
   }
   
 }

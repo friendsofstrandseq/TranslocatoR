@@ -8,7 +8,7 @@
 #' 
 #' @export
 
-clean.bins <- function(counts, blacklist) {
+clean.bins <- function(counts, blacklist, total.cells) {
   
   # start by blacklisting regions and then removing leftover None bins
   setkey(blacklist, chrom, start, end)

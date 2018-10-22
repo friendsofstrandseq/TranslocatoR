@@ -4,7 +4,7 @@
 \alias{translocatoR}
 \title{Find translocations}
 \usage{
-translocatoR(data.folder, output.folder, samples, options = "segments",
+translocatoR(data.folder, output.folder, samples, options = "pq",
   binsize = 100000L, cutoff = 0.01, regions = NULL, trfile = NULL,
   blacklist = T)
 }
@@ -15,7 +15,7 @@ translocatoR(data.folder, output.folder, samples, options = "segments",
 
 \item{samples}{on which samples in the MosaiCatcher output folder would you like to run TranslocatoR}
 
-\item{options}{can take values "segments", "pq", "majority". Defaults to "segments".}
+\item{options}{can take values "segments", "pq", "majority". Defaults to "pq".}
 
 \item{binsize}{which binsize to use, defaults to 100kb}
 

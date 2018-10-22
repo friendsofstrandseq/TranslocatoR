@@ -4,7 +4,7 @@
 \alias{clean.bins}
 \title{Bin cleaning: remove blacklisted bins and None bins}
 \usage{
-clean.bins(counts, blacklist)
+clean.bins(counts, blacklist, total.cells)
 }
 \arguments{
 \item{blacklist}{bin blacklist for centromeres and adjacent hard-to-sequence regions}
