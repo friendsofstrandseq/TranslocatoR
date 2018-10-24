@@ -1,6 +1,7 @@
 # TranslocatoR
 
 TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used for both reciprocal and non-reciprocal translocations.
+For some more detail on the steps TranslocatorR takes to detect translocations <a href="#how_it_works">click here</a>.
 ## Getting Started
 ### Prerequeisites
 What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
@@ -13,6 +14,9 @@ What you need to install the software. Consult [GitLab help section](https://git
     * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
 7. Load the needed packages
     * ``` library("TranslocatoR","data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
+
+:bangbang:**space-holder please update** :bangbang: 
+- [ ] update steps, it is to be expected that the upcoming version of TranslocatoR will auto-install the required packages/dependencies
 
 ## Using TranslocatoR
 Execute the following command and make sure to specify non-default arguments if needed.
@@ -90,4 +94,15 @@ translocatoR(
 #   trfile = "<your_trfile>.txt"
 ```
 For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
+:bangbang:**space-holder please update** :bangbang: 
+- [ ] Description of what one can specifically understand from the output files for the given data-set
+- [ ] upload example-data-set into "data-folder" in repository
+- [ ] update link to "data-folder" in repository
+
+
+## <a name="how_it_works">How TranslocatoR Works</a>
+
+:bangbang:**space-holder please update** :bangbang: 
+- [ ] Work-flow schematic
+- [ ] Short paragraph on working principle
 
