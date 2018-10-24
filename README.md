@@ -1,44 +1,93 @@
 # TranslocatoR
 
 TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used for both reciprocal and non-reciprocal translocations.
+## Getting Started
+### Prerequeisites
+What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
+1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
+2. In your terminal navigate to the directory that you wish to clone TranslocatoR to
+3. Clone TranslocatoR to that directory 
+4. Launch R.Studio and navigate to that your_directory/Translocator/R
+5. Execute ``` install ()``` 
+6. You will need the following packages: 
+    * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
+7. Load the needed packages
+    * ``` library("TranslocatoR","data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
 
-## Basics
-In order to run TranslocatoR you must provide it with a path to the MosaiCatcher output folder that contains your sample(s) of choice. 
-TranslocatoR assumes that the input directory has the exact structure of the MosaiCatcher output, so if you want to test something or supply different files, you'll have to mimic the
-following structure:  
+## Using TranslocatoR
+Execute the following command and make sure to specify non-default arguments if needed.
+```
+translocatoR(data.folder, output.folder, samples, options = "pq", binsize = 100000L, cutoff = 0.01, regions = NULL, trfile = NULL, blacklist = T) 
+``` 
+  
+**Argument** | Comment
+---------|---------
+data.folder	| path to MosaiCatcher data folder
+output.folder | absolute path to output folder for TranslocatoR data
+samples	| samples in MosaiCatcher output folder to be analyzed by TranslocatoR. Use consistent ID throughout the data-set.
+options	| can take multiple values "segments", "pq", "majority"; defaults to "pq".
+binsize	| which binsize to use, defaults to 100kb
+cutoff	| cutoff for significant FDR-corrected p-values, defaults to 0.01
+regions	| list of regions in the format "chr#:<start>-<end>" for potential translocations
+trfile	| list of manually-identified strand state of suspected translocation
+blacklist | whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
+ 
+**data.folder** should be the path to the MosaiCatcher data folder that contains your sample(s) of choice. If you decide to use other files please ensure the following path-structure
 ```
 |__<your folder>  
     |__strand_states  
     |   |__<sample ID>  
-    |       |__<input file>
-    |__segmentation
-    |   |__<sample ID>
-    |       |__<input file>
-    |__counts
-        |__<sample ID>
-            |__<input file>
+    |       |__<final.txt>
 ```
-## Options
-You can run TranslocatoR with different options. ```pq``` takes the strand state for
-the end of each arm and compares them all to each other. ```segments``` automatically identifies
-all recurring segments in a library and compares them to each other. This is useful
-for very complex events.
 
-## Providing your own files
-If you suspect a non-reciprocal translocation, you can pass TranslocatoR a file
-```trfile```that contains the manually-identified strand state of the translocation for each
-cell. This file must contain a 'sample' column, a 'cell' column, and one or more columns containing the state for the translocation(s).
-Give these columns descriptive names containing the chromosome number/letter in the format 'chr<[0-9X-Y]>' for later reference. An example:
+**options** 
 
-| sample | cell | chr10tr |
-|--------|------|-------|
-|RPE-BM510|BM510_20306| C|
-|RPE-BM510|BM510_20310| W|
-|RPE-BM510|BM510_20315| W|
+* ``` pq ``` takes the strand state for the end of each arm and compares them all to each other
+* ``` majority ```
+* ``` segments ``` automatically identifies all recurring segments in a library and compares them to each other. This is useful for very complex events. 
 
-Each file cannot contain more than one sample, but you can provide different files
-for different samples.
+**samples** should give distinctive sample-ids: ```samples=c("RPE-BM510", "C7")```
 
-If you want to examine one or more specific regions, you can provide a ```regions``` file
-containing four columns: 'sample', 'chrom', 'start' and 'end'.
-This file can contains different regions for different samples, just make sure your sample names match those used by MosaiCatcher.
+**regions** to investigate specific regions of a chromosome. Provide a file in the following format, multiple sample-id inputs are possible:
+
+sample | chrom | start | end
+------|------|------|------
+RPE-BM510 | chr12 | 80000 | 900000
+C7 | chr5 | 0 | 555666
+ 
+
+**trfile** cannot contain more than one sample-id. In order to supply several sample-ids provide several paths for the argument: ```trfile = c("path1", "path2", ...) ```
+
+The first two columns of the .txt file must contain the sample- and cell-ids.
+ 
+ sample | cell | chr10tr
+--------|------|-------
+RPE-BM510|BM510_20306| C
+RPE-BM510|BM510_20310| W
+RPE-BM510|BM510_20315| W
+ 
+### Output 
+The following output file structure will be created:
+```
+|__<your_output_folder>  
+    |__sample-ID                        # creates folder for each given sample
+    |   |__haplotypes-per-arm.txt       # raw data output
+    |   |__outliers
+    |       |__<outliers.txt>           # cells that do not follow the predicted translocation pattern
+    |   |__translocations  
+    |       |__pvalue-table.txt         # all possible combinations
+    |       |__recurrent-segments.txt   # recurring breakpoints that occur > 2x within the data set  
+    |       |__translocations.txt       # suggested translocations after applying pvalue cut-off
+```
+
+## Ready to use Example
+```
+translocatoR(
+    data.folder = "/g/korbel2/StrandSeq/20180727_MosiacatcherResults/all-2018-08-02", 
+    output.folder = "<your_output_folder>", 
+    samples = c("RPE-BM510", "C7-data"))
+#   options = "pq",
+#   trfile = "<your_trfile>.txt"
+```
+For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
+
