@@ -29,7 +29,7 @@ translocatoR(data.folder, output.folder, samples, options = "pq", binsize = 1000
 data.folder	| path to MosaiCatcher data folder
 output.folder | absolute path to output folder for TranslocatoR data
 samples	| samples in MosaiCatcher output folder to be analyzed by TranslocatoR. Use consistent ID throughout the data-set.
-options	| can take multiple values "segments", "pq", "majority"; defaults to "pq".
+options	| can take one of multiple values "segments", "pq", "majority"; defaults to "pq".
 binsize	| which binsize to use, defaults to 100kb
 cutoff	| cutoff for significant FDR-corrected p-values, defaults to 0.01
 regions	| list of regions in the format "chr#:<start>-<end>" for potential translocations
