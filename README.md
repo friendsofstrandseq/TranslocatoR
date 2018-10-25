@@ -94,14 +94,14 @@ Run TranslocatoR yourself:
 translocatoR(
     data.folder = "/data/example-data/example-input", 
     output.folder = "/data/example-data/example-output/your-output", 
-    samples = c("RPE1-WT"),
+    samples = c("RPE-BM510"),
 #   options = "pq",
 #   trfile = "/data/example-data/example-input/trfile-example.txt",
     )
 ```
 
 #### Input #### 
-1. MosaiCatcher output-folder structure containing "RPE1-WT" as examplary sample: ```/data/example-data/example-input```
+1. MosaiCatcher output-folder structure containing "RPE-BM510" as examplary sample: ```/data/example-data/example-input```
 2. Examplary file containing the manually-identified strand states of the suspected translocation ```/data/example-data/example-input/trfile-example.txt```
 
 #### Output ####  
