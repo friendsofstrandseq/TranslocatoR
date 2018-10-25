@@ -110,9 +110,24 @@ translocatoR(
 
 
 ### <a name="understand-output">**Understanding the Output**</a>
+`translocation.txt` The primary output-file of interest. 
 
-For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
+- **SegA**/**SegB**: Chromosomes that are affected by translocation
+- **cor**: positive/negative correlation
+- **p**: p-value 
+- **x**: number of matching states
+- **n**: number of cells
+- **pBH**: FDR-adjustes p-value
 
+The other output files are useful for further reference, but not crucial.
+
+- `outliers.txt` Outlyer cells that do not match the segregation pattern for any of the identified translocations. User can use this to double-check the listed cells.
+- `haplotypes-per-arm-txt` Matrix containing all split haplotypes per cell.
+- `pvalue-table.txt` Full matrix of segment comparisons and p-values; no cut-off applied.
+- `recurrent-segments.txt` Matrix of recurrent segments (>1x; not entire chr). Lists start-/end-point in N-cells. Can be used to infer breakpoint.
+
+#### Understanding the Examplary Output ####
+For our example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
 
 
 ## <a name="how_it_works">How TranslocatoR Works</a>
