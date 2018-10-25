@@ -109,12 +109,25 @@ translocatoR(
 2. If you have run TranslocatoR yourself the output can be found here: ```/data/example-data/example-output/your-output```
 
 
-### <a name="understand-output">**Unterstanding the Output**</a>
+### <a name="understand-output">**Understanding the Output**</a>
 
 For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
 
-## <a name="how_it_works">How TranslocatoR Works</a>
 
+
+## <a name="how_it_works">How TranslocatoR Works</a>
+```mermaid
+graph TB
+
+n1(Strand-Seq) -->|BAM files| n2[MosaiCatcher]
+n2 --> |Strand States| n4{TranslocatoR}
+n3(manual strand state identification)-.trfile.->  n4
+n4 -->n5(translocation)
+
+
+class n1,n2,n3,n4,n5 orange-box;
+classDef orange-box fill:#E5995D, stroke-width:0px;
+```
 :bangbang:**space-holder** :bangbang: 
 - [ ] Work-flow schematic
 - [ ] Short paragraph on working principle
