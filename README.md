@@ -51,7 +51,7 @@ blacklist | whether to use the blacklist for centromeres and short arms for acro
 * ``` majority ```
 * ``` segments ``` automatically identifies all recurring segments in a library and compares them to each other. This is useful for very complex events. 
 
-**samples** should give distinctive sample-ids: ```samples=c("RPE-BM510", "C7")```
+**samples** should give distinctive sample-ids. Multiple inputs are possible: ```samples=c("RPE-BM510", "C7")```
 
 **regions** to investigate specific regions of a chromosome. Provide a file in the following format, multiple sample-id inputs are possible:
 
