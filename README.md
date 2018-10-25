@@ -4,6 +4,9 @@ TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used
 For some more detail on the steps TranslocatorR takes to detect translocations <a href="#how_it_works">click here</a>.
 ## Getting Started
 ### Prerequeisites
+<!---:bangbang:**please update** :bangbang: 
+- update steps, it is to be expected that the upcoming version of TranslocatoR will auto-install the required packages/dependencies-->
+
 What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
 1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
 2. In your terminal navigate to the directory that you wish to clone TranslocatoR to
@@ -14,9 +17,6 @@ What you need to install the software. Consult [GitLab help section](https://git
     * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
 7. Load the needed packages
     * ``` library("TranslocatoR","data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
-
-:bangbang:**space-holder please update** :bangbang: 
-- [ ] update steps, it is to be expected that the upcoming version of TranslocatoR will auto-install the required packages/dependencies
 
 ## Using TranslocatoR
 Execute the following command and make sure to specify non-default arguments if needed.
@@ -35,7 +35,8 @@ cutoff	| cutoff for significant FDR-corrected p-values, defaults to 0.01
 regions	| list of regions in the format "chr#:<start>-<end>" for potential translocations
 trfile	| list of manually-identified strand state of suspected translocation
 blacklist | whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
- 
+
+<br> </br> 
 **data.folder** should be the path to the MosaiCatcher data folder that contains your sample(s) of choice. If you decide to use other files please ensure the following path-structure
 ```
 |__<your folder>  
@@ -59,7 +60,7 @@ sample | chrom | start | end
 RPE-BM510 | chr12 | 80000 | 900000
 C7 | chr5 | 0 | 555666
  
-
+<br> </br>
 **trfile** cannot contain more than one sample-id. In order to supply several sample-ids provide several paths for the argument: ```trfile = c("path1", "path2", ...) ```
 
 The first two columns of the .txt file must contain the sample- and cell-ids.
@@ -84,25 +85,47 @@ The following output file structure will be created:
     |       |__translocations.txt       # suggested translocations after applying pvalue cut-off
 ```
 
-## Ready to use Example
+Some insight on how to understand the given output is given <a href="#understand-output">below</a>.
+
+## Ready-to-use Example
+Here we provide you ready-to-use data for testing TranslocatoR.
+Run TranslocatoR yourself:
 ```
 translocatoR(
-    data.folder = "/g/korbel2/StrandSeq/20180727_MosiacatcherResults/all-2018-08-02", 
-    output.folder = "<your_output_folder>", 
-    samples = c("RPE-BM510", "C7-data"))
+    data.folder = "/data/example-data/example-input", 
+    output.folder = "/data/example-data/example-output/your-output", 
+    samples = c("RPE1-WT"),
 #   options = "pq",
-#   trfile = "<your_trfile>.txt"
+#   trfile = "/data/example-data/example-input/trfile-example.txt",
+    )
 ```
-For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
-:bangbang:**space-holder please update** :bangbang: 
-- [ ] Description of what one can specifically understand from the output files for the given data-set
-- [ ] upload example-data-set into "data-folder" in repository
-- [ ] update link to "data-folder" in repository
 
+#### Input #### 
+1. MosaiCatcher output-folder structure containing "RPE1-WT" as examplary sample: ```/data/example-data/example-input```
+2. Examplary file containing the manually-identified strand states of the suspected translocation ```/data/example-data/example-input/trfile-example.txt```
+
+#### Output ####  
+1. We provide you with examplary output: ```/data/example-data/example-output/example-run```
+2. If you have run TranslocatoR yourself the output can be found here: ```/data/example-data/example-output/your-output```
+
+
+### <a name="understand-output">**Unterstanding the Output**</a>
+
+For this example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)). 
 
 ## <a name="how_it_works">How TranslocatoR Works</a>
 
-:bangbang:**space-holder please update** :bangbang: 
+:bangbang:**space-holder** :bangbang: 
 - [ ] Work-flow schematic
 - [ ] Short paragraph on working principle
 
+<!--- To-Do 
+:bangbang:**space-holder please update** :bangbang: 
+- [ ] Description of what one can specifically understand from the output files for the given data-set => "understanding the output"
+- [x] upload example-data-set into "data-folder" in repository
+- [ ] upload trfile-example.txt
+
+
+
+
+-->
