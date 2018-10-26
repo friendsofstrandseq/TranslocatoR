@@ -96,7 +96,7 @@ translocatoR(
     data.folder = "/data/example-data/example-input", 
     output.folder = "/data/example-data/example-output/your-output", 
     samples = c("RPE-BM510"),
-#   options = "pq",
+    options = "majority",
 #   trfile = "/data/example-data/example-input/trfile-example.txt",
     )
 ```
