@@ -11,12 +11,13 @@ What you need to install the software. Consult [GitLab help section](https://git
 1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
 2. In your terminal [navigate](https://git.embl.de/help/gitlab-basics/command-line-commands.md) to the directory that you wish to clone TranslocatoR to: `cd PATH_to_your_dir`
 3. [Clone](https://git.embl.de/help/gitlab-basics/command-line-commands.md) TranslocatoR to that directory: `git clone git@git.embl.de:vliet/TranslocatoR.git`
-4. Launch R.Studio and navigate to TranslocatoR: `setwd(<PATH>/Translocator/R)`
+4. Launch [R.Studio](https://www.rstudio.com) and navigate to TranslocatoR: `setwd("<PATH>/Translocator/R")`
 5. Execute ``` install ()``` 
 6. You will need the following packages: 
     * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
 7. Load the needed packages
     * ``` library("TranslocatoR","data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
+8. You are now set to use TranslocatoR. We provide you with a ready-to-use example <a href="#example">here</a>, as well as some output-context.
 
 ## Using TranslocatoR
 Execute the following command and make sure to specify non-default arguments if needed.
@@ -87,7 +88,7 @@ The following output file structure will be created:
 
 Some insight on how to understand the given output is given <a href="#understand-output">below</a>.
 
-## Ready-to-use Example
+## <a name="example">**Ready-to-use Example**</a>
 Here we provide you ready-to-use data for testing TranslocatoR.
 Run TranslocatoR yourself:
 ```r
