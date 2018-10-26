@@ -9,9 +9,9 @@ For some more detail on the steps TranslocatorR takes to detect translocations <
 
 What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
 1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
-2. In your terminal navigate to the directory that you wish to clone TranslocatoR to
-3. Clone TranslocatoR to that directory 
-4. Launch R.Studio and navigate to that your_directory/Translocator/R
+2. In your terminal [navigate](https://git.embl.de/help/gitlab-basics/command-line-commands.md) to the directory that you wish to clone TranslocatoR to: `cd PATH_to_your_dir`
+3. [Clone](https://git.embl.de/help/gitlab-basics/command-line-commands.md) TranslocatoR to that directory: `git clone git@git.embl.de:vliet/TranslocatoR.git`
+4. Launch R.Studio and navigate to TranslocatoR: `setwd(<PATH>/Translocator/R)`
 5. Execute ``` install ()``` 
 6. You will need the following packages: 
     * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
@@ -20,7 +20,7 @@ What you need to install the software. Consult [GitLab help section](https://git
 
 ## Using TranslocatoR
 Execute the following command and make sure to specify non-default arguments if needed.
-```
+```r
 translocatoR(data.folder, output.folder, samples, options = "pq", binsize = 100000L, cutoff = 0.01, regions = NULL, trfile = NULL, blacklist = T) 
 ``` 
   
@@ -90,7 +90,7 @@ Some insight on how to understand the given output is given <a href="#understand
 ## Ready-to-use Example
 Here we provide you ready-to-use data for testing TranslocatoR.
 Run TranslocatoR yourself:
-```
+```r
 translocatoR(
     data.folder = "/data/example-data/example-input", 
     output.folder = "/data/example-data/example-output/your-output", 
