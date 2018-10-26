@@ -140,8 +140,9 @@ n3(manual strand state identification)-.trfile.->  n4
 n4 -->n5(translocation)
 
 
-class n1,n2,n3,n4,n5 orange-box;
-classDef orange-box fill:#E5995D, stroke-width:0px;
+
+
+
 ```
 <!--- To-Do 
 :bangbang:**space-holder** :bangbang: 
