@@ -13,10 +13,10 @@ What you need to install the software. Consult [GitLab help section](https://git
 3. [Clone](https://git.embl.de/help/gitlab-basics/command-line-commands.md) TranslocatoR to that directory: `git clone git@git.embl.de:vliet/TranslocatoR.git`
 4. Launch [R.Studio](https://www.rstudio.com) and navigate to TranslocatoR: `setwd("<PATH>/Translocator/R")`
 5. Execute ``` install ()``` 
-6. You will need the following packages: 
-    * ```install.packages("data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
-7. Load the needed packages
-    * ``` library("TranslocatoR","data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat")```
+6. You will need the following packages: ```"data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat"```
+    * They should be automatically installed. If not use: ```install.packages("<PACKAGE-NAME>")```
+7. Load TranslocatoR and the needed packages
+    * ``` library(<PACKAGE-NAME>)```
 8. You are now set to use TranslocatoR. We provide you with a ready-to-use example <a href="#example">here</a>, as well as some output-context.
 
 ## Using TranslocatoR
@@ -35,7 +35,7 @@ binsize	| which binsize to use, defaults to 100kb
 cutoff	| cutoff for significant FDR-corrected p-values, defaults to 0.01
 regions	| list of regions in the format "chr#:<start>-<end>" for potential translocations
 trfile	| list of manually-identified strand state of suspected translocation
-blacklist | whether to use the blacklist for centromeres and short arms for acrocentric chromosomes. defaults to True. use is strongly recommended.
+blacklist | List of coordinates for centromeres and short arms for acrocentric chromosomes. Defaults to TRUE and is strongly recommended.
 
 <br> </br> 
 **data.folder** should be the path to the MosaiCatcher data folder that contains your sample(s) of choice. If you decide to use other files please ensure the following path-structure
@@ -48,11 +48,11 @@ blacklist | whether to use the blacklist for centromeres and short arms for acro
 
 **options** 
 
-* ``` pq ``` takes the strand state for the end of each arm and compares them all to each other
-* ``` majority ```
-* ``` segments ``` automatically identifies all recurring segments in a library and compares them to each other. This is useful for very complex events. 
+* ``` pq ``` takes the strand state of the end of each p/q-arm 
+* ``` majority ``` takes the majority strand state of each chromosome
+* ``` segments ``` automatically identifies all recurring segments in a library. This is useful for very complex events. 
 
-**samples** should give distinctive sample-ids. Multiple inputs are possible: ```samples=c("RPE-BM510", "C7")```
+**samples** should give distinctive sample-ids. Multiple inputs are possible: ```samples=c("sampleA", "sampleB")```
 
 **regions** to investigate specific regions of a chromosome. Provide a file in the following format, multiple sample-id inputs are possible:
 
@@ -97,37 +97,40 @@ translocatoR(
     output.folder = "/data/example-data/example-output/your-output", 
     samples = c("RPE-BM510"),
     options = "majority",
-#   trfile = "/data/example-data/example-input/trfile-example.txt",
+    trfile = "/data/example-data/example-input/trfile-example.txt",
     )
 ```
 
 #### Input #### 
-1. MosaiCatcher output-folder structure containing "RPE-BM510" as examplary sample: ```/data/example-data/example-input```
-2. Examplary file containing the manually-identified strand states of the suspected translocation ```/data/example-data/example-input/trfile-example.txt```
+1. MosaiCatcher output-folder structure containing "RPE-BM510" as a sample: ```/data/example-data/example-input```
+2. Example file containing the manually-identified strand states of the suspected translocation ```/data/example-data/example-input/trfile-example.txt```
 
 #### Output ####  
-1. We provide you with examplary output: ```/data/example-data/example-output/example-run```
+1. We provide you with the expected example-run output: ```/data/example-data/example-output/example-run```
 2. If you have run TranslocatoR yourself the output can be found here: ```/data/example-data/example-output/your-output```
 
 
 ### <a name="understand-output">**Understanding the Output**</a>
 `translocation.txt` The primary output-file of interest. 
 
-- **SegA**/**SegB**: Chromosomes that are affected by translocation
-- **cor**: positive/negative correlation
+- **SegA**/**SegB**: chromosomes that are affected by translocation: SegA translocates to SegB, haplotypespecific.
+- **cor**: Positive/negative correlation.
 - **p**: p-value 
-- **x**: number of matching states
-- **n**: number of cells
-- **pBH**: FDR-adjustes p-value
+- **x**: Number of matching states.
+- **n**: Number of cells.
+- **pBH**: FDR-adjusted p-value.
 
 The other output files are useful for further reference, but not crucial.
 
-- `outliers.txt` Outlyer cells that do not match the segregation pattern for any of the identified translocations. User can use this to double-check the listed cells.
+- `outliers.txt` Outlyer cells that do not match the segregation pattern for any of the identified translocations. Can be used to double-check the listed cells.
 - `haplotypes-per-arm-txt` Matrix containing all split haplotypes per cell.
 - `pvalue-table.txt` Full matrix of segment comparisons and p-values; no cut-off applied.
-- `recurrent-segments.txt` Matrix of recurrent segments (>1x; not entire chr). Lists start-/end-point in N-cells. Can be used to infer breakpoint.
+- `recurrent-segments.txt` Matrix of recurrent segments (>1x; not entire chr). Lists start-/end-point in N-cells. Can be used to infer breakpoint and thus validate the detected translocations.
 
 #### Understanding the Examplary Output ####
+
+The output-file of primary interest ist `translocations.txt` where TranslocatoR gives a list of detected translocations with FDR-adjusted p-values. This list is affected by the arguments used for the run. 
+In our example you can see three translocations.
 For our example-data TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
 
 
