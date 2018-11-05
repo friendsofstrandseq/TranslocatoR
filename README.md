@@ -148,19 +148,16 @@ In chr21 no recurring segments/breakpoints are found. Hence, the 2nd and 3rd det
 
 
 ## <a name="how_it_works">How TranslocatoR Works</a>
-After processing the data with StrandPhaseR, the Mo- saiCatcher pipeline outputs a file containing all segments and their phased states. 
-This file forms the input to TranslocatoR.
-There are several ways of finding co-segregating segments (i.e. translocations). 
+After processing the data with StrandPhaseR, the MosaiCatcher pipeline outputs a file containing all segments and their phased states. 
+This file forms the input to TranslocatoR.  
+There are several ways of finding co-segregating segments (i.e. translocations):   
 TranslocatoR has two main options, pq and majority and accepts a file that contains a list of manually-identified strand state for a segment. 
-A file containing regions of interest in a sample may also be provided. 
+A file containing regions of interest in a sample may also be provided.  
 The second step for both options is haplotype splitting for each segment. 
 Note that with the majority option, each chromosome is represented by one ‘segment’ which is the majority state, 
 and with the pq option each chromosome is represented by two segments, one for each arm. 
-The third step compares each haplotype of each segment to every other segment’s haplotype.
-Output
-P-values are calculated as described above and Translo- catoR subsequently outputs a list of p-values for each hap- lotyped segment combination along with a list of recurrent breakpoints, a list of outlier cells that do not follow the pos- itive or negative association pattern for predicted transloca- tions as well as the full matrix of split haplotypes for each seg-
+The third step compares each haplotype of each segment to every other segment’s haplotype.  
 
-mentineachlibraryforlaterreference.
 TranslocatoRoutputs a matrix containing translocations by selecting all segments where p is below a user-chosen cutoff (default 0.01).
 
 ```mermaid
