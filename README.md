@@ -48,13 +48,17 @@ blacklist | List of coordinates for centromeres and short arms for acrocentric c
 
 **options** 
 
-* ``` pq ``` takes the strand state of the end of each p/q-arm 
-* ``` majority ``` takes the majority strand state of each chromosome
+* ``` pq ``` takes the strand states of the most distal segments on both the p- and q-arms of each chromosome. Translocations are expected to be on the ends of chromosomes.
+* ``` majority ``` identifies the majority state (i.e. the most prevalent strand state) of each chromo- some to use for comparison
 * ``` segments ``` automatically identifies all recurring segments in a library. This is useful for very complex events. 
 
 **samples** should give distinctive sample-ids. Multiple inputs are possible: ```samples=c("sampleA", "sampleB")```
 
-**regions** to investigate specific regions of a chromosome. Provide a file in the following format, multiple sample-id inputs are possible:
+**regions** File containing regions of interest in a sample. 
+These regions are the positions where recurrent strand state changes take place, or one expects to see a more complex translocation. 
+TranslocatoR extracts the majority strand state for every given region in each cell and treats the regions as extra segments. 
+
+Provide a file in the following format, multiple sample-id inputs are possible:
 
 sample | chrom | start | end
 ------|------|------|------
@@ -62,15 +66,21 @@ RPE-BM510 | chr12 | 80000 | 900000
 C7 | chr5 | 0 | 555666
  
 <br> </br>
-**trfile** cannot contain more than one sample-id. In order to supply several sample-ids provide several paths for the argument: ```trfile = c("path1", "path2", ...) ```
-
-The first two columns of the .txt file must contain the sample- and cell-ids.
+**trfile** Useful for non-reciprocal translocations: 
+the translo- cated portion of a chromosome will look like a duplication and identifying its state is straightforward.  
+* Cannot contain more than one sample-id. In order to supply several sample-ids provide several paths for the argument: ```trfile = c("path1", "path2", ...) ```  
+* The first two columns of the .txt file must contain the sample- and cell-ids. 
+* The states in this file will be treated as an extra segment in each cell. 
  
+
  sample | cell | chr10tr
 --------|------|-------
 RPE-BM510|BM510_20306| C
 RPE-BM510|BM510_20310| W
 RPE-BM510|BM510_20315| W
+
+
+
  
 ### Output 
 The following output file structure will be created:
@@ -138,6 +148,20 @@ In chr21 no recurring segments/breakpoints are found. Hence, the 2nd and 3rd det
 
 
 ## <a name="how_it_works">How TranslocatoR Works</a>
+After processing the data with StrandPhaseR, the Mo- saiCatcher pipeline outputs a file containing all segments and their phased states. 
+This file forms the input to TranslocatoR.
+There are several ways of finding co-segregating segments (i.e. translocations). 
+TranslocatoR has two main options, pq and majority and accepts a file that contains a list of manually-identified strand state for a segment. 
+A file containing regions of interest in a sample may also be provided. 
+The second step for both options is haplotype splitting for each segment. 
+Note that with the majority option, each chromosome is represented by one ‘segment’ which is the majority state, 
+and with the pq option each chromosome is represented by two segments, one for each arm. 
+The third step compares each haplotype of each segment to every other segment’s haplotype.
+Output
+P-values are calculated as described above and Translo- catoR subsequently outputs a list of p-values for each hap- lotyped segment combination along with a list of recurrent breakpoints, a list of outlier cells that do not follow the pos- itive or negative association pattern for predicted transloca- tions as well as the full matrix of split haplotypes for each seg-
+
+mentineachlibraryforlaterreference.
+TranslocatoRoutputs a matrix containing translocations by selecting all segments where p is below a user-chosen cutoff (default 0.01).
 
 ```mermaid
 graph TB
@@ -146,6 +170,7 @@ n1(Strand-Seq) -->|BAM files| n2[MosaiCatcher]
 n2 --> |Strand States| n4{TranslocatoR}
 n3(manual strand state identification)-.trfile.->  n4
 n4 -->n5(translocation)
+n6(regions of interest)-.regions.->  n4
 
 
 
