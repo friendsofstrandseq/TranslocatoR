@@ -62,7 +62,7 @@ p.helper.apply <- function(cormat, casthaplos, x) {
   total <- nrow(cormat)
   if (x%%round(total/10) == 0) {
     cat(paste(x, "combinations out of", total,"calculated\n"))}
-  p.helper.cdf(casthaplos[,.(get(cormat[["segA"]][x]), get(cormat[["segB"]][x]))])
+  p.helper.cdf(casthaplos[, c(cormat[["segA"]][x], cormat[["segB"]][x]), with=F])
 }
 
 get.pvalue.dt <- function(factordt) {
