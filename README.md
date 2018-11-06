@@ -1,7 +1,34 @@
 # TranslocatoR
 
-TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used for both reciprocal and non-reciprocal translocations.
-For some more detail on the steps TranslocatorR takes to detect translocations <a href="#how_it_works">click here</a>.
+_TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used for both reciprocal and non-reciprocal translocations._
+###TOC###
+* How TranslocatoR Works
+* Getting Started
+* Using TranslocatoR
+* Ready-to-use Example
+ 
+
+## <a name="how_it_works">How TranslocatoR Works</a>
+After processing the data with StrandPhaseR, the MosaiCatcher pipeline outputs a file containing all segments and their phased states. 
+This file forms the input to TranslocatoR.  
+TranslocatoR has several ways for the detection of co-segregating segments. 
+Besides the two main options, pq and majority, a further file of additional inferred strand-states can be provided by the user (trfile) as well as a file containing regions of interest in the sample.    
+TranslocatoR performs haplotype splitting for each segment: Note that with the majority option, each chromosome is represented by one ‘segment’ which is the majority state, 
+and with the pq option each chromosome is represented by two segments, one for each arm. 
+Finally each haplotype of each segment is compared to every other segment’s haplotype.  
+
+TranslocatoR outputs a matrix containing translocations by selecting all segments where p is below a user-chosen cutoff (default 0.01).
+
+```mermaid
+graph LR
+
+n1(Strand-Seq) -->|BAM files| n2[MosaiCatcher]
+n2 --> |Strand States| n4{TranslocatoR}
+n3(manual strand state identification)-.trfile.->  n4
+n4 -->n5(translocation)
+n6(regions of interest)-.regions.->  n4
+``` 
+
 ## Getting Started
 ### Prerequeisites
 <!---:bangbang:**please update** :bangbang: 
@@ -147,33 +174,11 @@ In chr21 no recurring segments/breakpoints are found. Hence, the 2nd and 3rd det
 
 
 
-## <a name="how_it_works">How TranslocatoR Works</a>
-After processing the data with StrandPhaseR, the MosaiCatcher pipeline outputs a file containing all segments and their phased states. 
-This file forms the input to TranslocatoR.  
-There are several ways of finding co-segregating segments (i.e. translocations):   
-TranslocatoR has two main options, pq and majority and accepts a file that contains a list of manually-identified strand state for a segment. 
-A file containing regions of interest in a sample may also be provided.  
-The second step for both options is haplotype splitting for each segment. 
-Note that with the majority option, each chromosome is represented by one ‘segment’ which is the majority state, 
-and with the pq option each chromosome is represented by two segments, one for each arm. 
-The third step compares each haplotype of each segment to every other segment’s haplotype.  
-
-TranslocatoRoutputs a matrix containing translocations by selecting all segments where p is below a user-chosen cutoff (default 0.01).
-
-```mermaid
-graph TB
-
-n1(Strand-Seq) -->|BAM files| n2[MosaiCatcher]
-n2 --> |Strand States| n4{TranslocatoR}
-n3(manual strand state identification)-.trfile.->  n4
-n4 -->n5(translocation)
-n6(regions of interest)-.regions.->  n4
 
 
 
 
 
-```
 <!--- To-Do 
 :bangbang:**space-holder** :bangbang: 
 - [ ] Work-flow schematic
