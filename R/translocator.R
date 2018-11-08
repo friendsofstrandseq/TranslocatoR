@@ -50,6 +50,10 @@ translocatoR <- function(data.folder, output.folder, samples, options = "pq",
     stop(cat("Provide a valid option: majority, pq or segments."))
   }
   
+  if (options == "segments" & (!is.null(trfile) | !is.null(regions))) {
+    cat("The option \"segments\" does not incorporate trfile or region information. Proceeding without.")
+  }
+  
   translocations <- FALSE
   
   if (!is.null(trfile)) {
@@ -186,6 +190,7 @@ translocatoR <- function(data.folder, output.folder, samples, options = "pq",
           translos[, paste0(names, ".H2") := lapply(.SD, function(x) {as.numeric(factor(substring(x, 2)))}), .SDcols = names]
           
           maj.cast <- merge(maj.cast, translos[, .SD, .SDcols = names(translos) %like% ".H[1-2]" | names(translos) %like% "cell"], by = "cell")
+          write.table(maj.cast, file.path(output.folder.cursamp, "haplotypes-per-chrom.txt"), quote = F, row.names = F)
         }
       }
       
@@ -197,23 +202,7 @@ translocatoR <- function(data.folder, output.folder, samples, options = "pq",
       if (dim(potential.tr)[1] != 0) {
         outlier.list <- lapply(1:nrow(potential.tr), get.outliers, phased = phased, hapmatrix = maj.cast, translocations = potential.tr)
       }
-      
-      ###########
-      ## Output
-      ###########
-      
-      cat("Writing output files...\n")
-      for (x in 1:length(outlier.list)) {
-        partnerA <- potential.tr[["segA"]][x]
-        partnerB <- potential.tr[["segB"]][x]
-        write.table(outlier.list[[x]], file.path(outlier.output, paste0(partnerA, "-", partnerB,"-outliers.txt")), quote=F, row.names = F)
-      }
-      
-      write.table(p.values, file.path(tr.output, "pvalue-table.txt"), quote = F, row.names = F)
-      write.table(potential.tr, file.path(tr.output, "translocations.txt"), quote = F, row.names = F)
-      write.table(maj.cast, file.path(output.folder.cursamp, "haplotypes-per-arm.txt"), quote = F, row.names = F)
-      write.table(recurrent, file.path(tr.output, "recurrent-segments.txt"), quote = F, row.names = F)
-    }
+    } # options = pq if statement
     
     ##############################################
     ## Analysis: pq + suspected translocation file
@@ -255,188 +244,62 @@ translocatoR <- function(data.folder, output.folder, samples, options = "pq",
           translos[, paste0(names, ".H2") := lapply(.SD, function(x) {as.numeric(factor(substring(x, 2)))}), .SDcols = names]
           
           phased.pq <- merge(phased.pq, translos[, .SD, .SDcols = names(translos) %like% ".H[1-2]" | names(translos) %like% "cell"], by = "cell")
+          write.table(phased.pq, file.path(output.folder.cursamp, "haplotypes-per-arm.txt"), quote = F, row.names = F)
         }
       }
       
+      # get recurrent segments, p-value matrix and potential translocations based on the corrected p-value (below cutoff)
       recurrent <- rec.seg(phased)
       p.values <- get.pvalue.dt(phased.pq)
       potential.tr <- p.values[str_extract(segA, "chr[0-9X-Y]+") != str_extract(segB, "chr[0-9X-Y]+")][pBH < cutoff][order(pBH)]
       
       # get all cells that do not conform to the translocation pattern
+      outliers <- FALSE
       if (dim(potential.tr)[1] != 0) {
+        outliers <- TRUE
         outlier.list <- lapply(1:nrow(potential.tr), get.outliers, phased = phased, hapmatrix = phased.pq, translocations = potential.tr)
       }
-      
-      ###########
-      ## Output
-      ###########
-      
-      cat("Writing output files...\n")
-      for (x in 1:length(outlier.list)) {
-        partnerA <- potential.tr[["segA"]][x]
-        partnerB <- potential.tr[["segB"]][x]
-        write.table(outlier.list[[x]], file.path(outlier.output, paste0(partnerA, "-", partnerB,"-outliers.txt")), quote=F, row.names = F)
-      }
-      
-      write.table(recurrent, file.path(tr.output, "recurrent-segments.txt"), quote = F, row.names = F)
-      write.table(p.values, file.path(tr.output, "pvalue-table.txt"), quote = F, row.names = F)
-      write.table(potential.tr, file.path(tr.output, "translocations.txt"), quote = F, row.names = F)
-      write.table(phased.pq, file.path(output.folder.cursamp, "haplotypes-per-arm.txt"), quote = F, row.names = F)
     
     } # option = pq if statement
     
+    ###############################
+    ## Analysis: segments
+    ###############################
+    
     if (options == "segments") {
       
-      recurrent.segs <- rec.seg(phased)
+      recurrent <- rec.seg(phased)
       allsegs <- cast.haplotypes(phased)
-      
-      #################################
-      ## Analysis: p-value calculations
-      #################################
+      write.table(allsegs, file.path(output.folder.cursamp, "haplotypes-per-segment.txt"), quote = F, row.names = F)
       
       p.values <- get.pvalue.dt(allsegs)
       potential.tr <- p.values[str_extract(segA, "chr[0-9X-Y]+") != str_extract(segB, "chr[0-9X-Y]+")][pBH < cutoff][order(pBH)]
       
-      ###########
-      ## Output
-      ###########
+      # get all cells that do not conform to the translocation pattern
+      outliers <- FALSE
+      if (dim(potential.tr)[1] != 0) {
+        outliers <- TRUE
+        outlier.list <- lapply(1:nrow(potential.tr), get.outliers, phased = phased, hapmatrix = allsegs, translocations = potential.tr)
+      }
       
-      cat("Writing output files...\n")
+    } # options = segments
+    
+    ###########
+    ## Output
+    ###########
+    
+    cat("Writing output files...\n")
+    if (outliers == TRUE) {
       for (x in 1:length(outlier.list)) {
         partnerA <- potential.tr[["segA"]][x]
         partnerB <- potential.tr[["segB"]][x]
         write.table(outlier.list[[x]], file.path(outlier.output, paste0(partnerA, "-", partnerB,"-outliers.txt")), quote=F, row.names = F)
       }
-      
-      write.table(p.values, file.path(tr.output, "pvalue-table.txt"), quote = F, row.names = F)
-      write.table(potential.tr, file.path(tr.output, "translocations.txt"), quote = F, row.names = F)
-      write.table(phased.pq, file.path(output.folder.cursamp, "haplotypes-per-arm.txt"), quote = F, row.names = F)
-      
-    } # options = segments
-    
-    if (options == "make.segments") {
-      
-      ###############
-      ## File checking and reading
-      ###############
-      
-      # locate data directory
-      translocator.data <- system.file(package = "TranslocatoR", "data", mustWork = T)
-      
-      # load blacklist
-      if (blacklist == F) {
-        cat("Proceeding without blacklist. This will affect performance negatively.\n")
-      }
-      else {
-        blacklist <- fread(file.path(translocator.data, "blacklist.txt"))
-      }
-      
-      # locate and read counts and segments files
-      counts.folder <- file.path(data.folder, "counts", cursample)
-      if(!dir.exists(counts.folder)) {
-        stop(paste("The folder with read counts", counts.folder, "for sample", cursample, "is not in the data folder. Stopping execution.\n"))
-      }
-      
-      segments.folder <- file.path(data.folder, "segmentation", cursample)
-      if(!dir.exists(segments.folder)) {
-        stop(paste("The folder with segments", segments.folder, "for sample", cursample, "is not in the data folder. Stopping execution.\n"))
-      }
-      
-      tryCatch({
-        counts <- fread(paste("zcat", file.path(counts.folder, paste0(binsize, "_fixed_norm.txt.gz"))))
-      }, warning = function(w) {
-        stop(paste("Can't unzip and/or read the counts file", paste0(binsize, "_fixed_norm.txt.gz\n")))
-      })
-      cat("\tRead counts file\n")
-      
-      tryCatch({
-        segments <- fread(file.path(segments.folder, paste0(binsize, "_fixed_norm.txt")))
-      }, warning = function(w) {
-        stop(paste("Can't read the segments file", paste0(binsize, "_fixed_norm.txt"), "in", segments.folder, "\n"))
-      })
-      cat("\tRead segments file\n")
-      
-      #################################
-      ## Analysis: cleaning and phasing
-      #################################
-      
-      total.cells <- counts[, length(unique(cell))]
-      cat(paste("Analyzing", total.cells, "cells in sample", cursample,"\n"))
-      
-      # remove all None bins and centromeric bins
-      counts <- clean.bins(counts, blacklist, total.cells)
-      
-      # combine phased data and counts data to get phased counts (flipping WC to CW where necessary)
-      counts <- phase.counts(counts, phased)
-      
-      ###########################################################
-      ### Analysis: use MosaiCatcher segments to segment the data 
-      ### and get the haplotype-aware state for each segment
-      ###########################################################
-      
-      # find recurrent segments in the count data without looking at the segmented data
-      seg.count <- seg.finder(counts)
-      recurrent.segs <- rec.seg(seg.count)
-      
-      # get segments with lowest sse
-      segments.many <- segments[,.SD[sse == min(sse)], by = chrom][,.(chrom, start, end)]
-      
-      # the following line is a segmentation security check: if there are any recurrent segments that are not represented by the 
-      # current maximally segmented data, add this segment to the list
-      # this step can likely be removed after segmentation in MosaiCatcher improves
-      segments.many <- segment.check(segments.many, recurrent.segs)
-      
-      # combine the count data and the segments to get the phased state per segment
-      setkey(segments.many, chrom, start, end)
-      setkey(counts, chrom, start, end)
-      segment.counts <- foverlaps(counts, segments.many)
-      segment.counts <- segment.counts[order(cell,chrom, start, end)]
-      
-      #######################################################
-      ## Analysis: compare all segments to each other to find 
-      ## co-segregating segments
-      #######################################################
-      
-      # majority class per segment from count data
-      segment.class <- segment.counts[, .(nbins = max(.N)), by = .(sample, cell, chrom, start, end, class)][, .(class = class[which.max(nbins)]), by=.(sample, cell, chrom, start, end)]
-      
-      # summarize the majority class per segment by retrieving start and end for each segment
-      bp.segs <- seg.finder(segment.class)
-      
-      # assign each cell + chromosome combination a label of breakpoints
-      unique.bps <- bp.segs[,unique(c(start, end)) ,by=.(cell, chrom)][, .(unique.bp = sapply(.SD, toString)), by=.(cell, chrom)]
-      bp.segs <- merge(bp.segs, unique.bps)
-      
-      # by using the breakpoint label unique.bp we can tell how many cells have this exact breakpoint pattern
-      bp.segs[, cells.unique.bp := length(unique(cell)), by=.(chrom, unique.bp)]
-      
-      # get bp.count: how often this exact breakpoint (start-end) occurs in the sample
-      bp.segs <- bp.segs[, bp.count := .N, by=.(chrom, start, end)][mixedorder(chrom)]
-      bp.segs <- bp.segs[order(cell, chrom, start, end)]
-      bp.segs[, len := end - start]
-      
-      final.segs <- unique(bp.segs)
-      
-      final.segs.H1H2 <- cast.haplotypes(final.segs)
-      
-      #################################
-      ## Analysis: p-value calculations
-      #################################
-      
-      p.values <- get.pvalue.dt(final.segs.H1H2)
-      potential.tr <- p.values[str_extract(segA, "chr[0-9X-Y]+") != str_extract(segB, "chr[0-9X-Y]+")][pBH < cutoff][order(pBH)]
-      
-      #############
-      ## Output
-      #############
-      
-      write.table(potential.tr, file.path(tr.output, "translocations.txt"), quote = F, row.names = F)
-      write.table(p.values, file.path(pval.output, "pvalue-table.txt"), quote = F, row.names = F)
-      write.table(final.segs.H1H2, file.path(output.folder, "haplotypes-per-segment.txt"), quote = F, row.names = F)
-      write.table(recurrent.segs, file.path(output.folder, "recurrent-segments.txt"), quote = F, row.names = F)
-    
-    # option: segment if statement  
     }
+    
+    write.table(recurrent, file.path(tr.output, "recurrent-segments.txt"), quote = F, row.names = F)
+    write.table(p.values, file.path(tr.output, "pvalue-table.txt"), quote = F, row.names = F)
+    write.table(potential.tr, file.path(tr.output, "translocations.txt"), quote = F, row.names = F)
     
     #############
     ### Plotting
