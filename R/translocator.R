@@ -199,7 +199,9 @@ translocatoR <- function(data.folder, output.folder, samples, options = "pq",
       potential.tr <- p.values[str_extract(segA, "chr[0-9X-Y]+") != str_extract(segB, "chr[0-9X-Y]+")][pBH < cutoff][order(pBH)]
       
       # get all cells that do not conform to the translocation pattern
+      outliers <- FALSE
       if (dim(potential.tr)[1] != 0) {
+        outliers <- TRUE
         outlier.list <- lapply(1:nrow(potential.tr), get.outliers, phased = phased, hapmatrix = maj.cast, translocations = potential.tr)
       }
     } # options = pq if statement
