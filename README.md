@@ -164,11 +164,9 @@ The other output files are useful for further reference, but not crucial.
 
 #### Understanding the Example Output ####
 
-The output-file of primary interest ist `translocations.txt` where TranslocatoR gives a list of detected translocation candidates ordered by FDR-adjusted p-values depending on the set cut-off. This list is affected by the arguments used for the run. 
-In our example you can see three candidate translocations: `chr10tr chrX.H2`, `chrX.H2 chr10.H2` and `chr21.H1 chr15.H1` 
-TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
+The output-file of primary interest is `translocations.txt` where TranslocatoR gives a list of detected translocation candidates ordered by FDR-adjusted p-values depending on the set cut-off. This list is affected by the arguments used for the run. 
+In our example you can see of the three candidate translocation partners found for the tested segment (specified by `trfile.txt`) `chr10tr chrX.H2` is the most probable partner. This coincides with the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
 Hence, by going back to the data and looking at the candidate translocations in the other files provided by TranslocatoR and the MosaiCatcher pipeline, one can evaluate the candidate translocations.
-
 
 
 
