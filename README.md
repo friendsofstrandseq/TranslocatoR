@@ -31,8 +31,6 @@ n6(regions of interest)-.regions.->  n4
 
 ## Getting Started
 ### Prerequeisites
-<!---:bangbang:**please update** :bangbang: 
-- update steps, it is to be expected that the upcoming version of TranslocatoR will auto-install the required packages/dependencies-->
 
 What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
 1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
@@ -166,31 +164,7 @@ The other output files are useful for further reference, but not crucial.
 
 #### Understanding the Example Output ####
 
-The output-file of primary interest ist `translocations.txt` where TranslocatoR gives a list of detected translocations ordered by FDR-adjusted p-values depending on the set cut-off. This list is affected by the arguments used for the run. 
-In our example you can see three translocations: `chr10tr chrX.H2`, `chrX.H2 chr10.H2` and `chr21.H1 chr15.H1` 
-TranslocatoR finds the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
-In order to interpret the other two detected translocated segments one can not only look at the p-values but also at `recurrent-segments.txt`. By looking at the involved chromosome regions one can see the count N>1 for occuring breakpoints. In our example there are two segments listed occuring each two times. This is not enough considering the library of cells n=145.   
-In chr21 no recurring segments/breakpoints are found. Hence, the 2nd and 3rd detected translocations are not to be considered as true translocations.
+The output-file of primary interest is `translocations.txt` where TranslocatoR gives a list of detected translocation candidates ordered by FDR-adjusted p-values depending on the set cut-off. This list is affected by the arguments used for the run. 
+In our example you can see of the three candidate translocation partners found for the tested segment (specified by `trfile.txt`) `chr10tr chrX.H2` is the most probable partner. This coincides with the previously described translocation der(X)t(X;10) ([Janssen et al., 2011, DOI: 10.1126/science.1210214](http://science.sciencemag.org/content/333/6051/1895)).
+Hence, by going back to the data and looking at the candidate translocations in the other files provided by TranslocatoR and the MosaiCatcher pipeline, one can evaluate the candidate translocations.
 
-
-
-
-
-
-
-
-<!--- To-Do 
-:bangbang:**space-holder** :bangbang: 
-- [ ] Work-flow schematic
-- [ ] Short paragraph on working principle
-
-
-:bangbang:**space-holder please update** :bangbang: 
-- [ ] Description of what one can specifically understand from the output files for the given data-set => "understanding the output"
-- [x] upload example-data-set into "data-folder" in repository
-- [ ] upload trfile-example.txt
-
-
-
-
--->
