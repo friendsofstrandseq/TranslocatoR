@@ -33,8 +33,11 @@ n6(regions of interest)-.regions.->  n4
 ## Getting Started
 ### Installing from GitHub
 
-TranslocatoR is easily installed directly from GitHub using the devtools() package.
+If you want to use TranslocatoR directly without looking at the usage example first, you can install it directly from GitHub with the devtools() package.
 Simply run `devtools::install_github(repo = "https://github.com/friendsofstrandseq/TranslocatoR", ref = "master")`, load the TranslocatoR library with `library(TranslocatoR)` and you're ready to go.
+
+If you would like to do an example run first to get a feel for how TranslocatoR output looks, you need to clone the directory and install the package separately. I have not yet been able to figure out how to make `devtools` install the subfolders necessary for the example to run.
+Clone the whole repository into your desired local directory by navigating to it, then running `git clone https://github.com/friendsofstrandseq/TranslocatoR.git`. Inside RStudio, navigate to the directory that now contains the cloned repo and set the `TranslocatoR` directory as your working directory. You can now run `devtools::install()` and TranslocatoR will be installed as normal.  You can then follow the usage example (keeping your working directory set to the cloned TranslocatoR repository folder).
 
 TranslocatoR utilizes the following R packages: ```"data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat"``` and these will be installed automatically if you do not have them on your machine yet.
 
@@ -126,7 +129,7 @@ Run TranslocatoR yourself:
 translocatoR(
     data.folder = "data/example-data/example-input", 
     output.folder = "data/example-data/example-output/your-output", 
-    samples = c("RPE-BM510"),
+    samples = "RPE-BM510",
     options = "majority",
     trfile = "data/example-data/example-input/trfile-example.txt",
     )
