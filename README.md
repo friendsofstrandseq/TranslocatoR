@@ -1,7 +1,8 @@
 # TranslocatoR
 
 _TranslocatoR finds translocations in MosaiCatcher-processed data. It can be used for both reciprocal and non-reciprocal translocations._
-###TOC###
+
+In this README:
 * How TranslocatoR Works
 * Getting Started
 * Using TranslocatoR
@@ -30,19 +31,14 @@ n6(regions of interest)-.regions.->  n4
 ``` 
 
 ## Getting Started
-### Prerequeisites
+### Installing from GitHub
 
-What you need to install the software. Consult [GitLab help section](https://git.embl.de/help 'GitLab-Help') if needed.
-1. Make sure that you own a [SSH-key](https://git.embl.de/help/ssh/README.md) for GitLab 
-2. In your terminal [navigate](https://git.embl.de/help/gitlab-basics/command-line-commands.md) to the directory that you wish to clone TranslocatoR to: `cd PATH_to_your_dir`
-3. [Clone](https://git.embl.de/help/gitlab-basics/command-line-commands.md) TranslocatoR to that directory: `git clone git@git.embl.de:vliet/TranslocatoR.git`
-4. Launch [R.Studio](https://www.rstudio.com) and navigate to TranslocatoR: `setwd("<PATH>/Translocator/R")`
-5. Execute ``` install ()``` 
-6. You will need the following packages: ```"data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat"```
-    * They should be automatically installed. If not use: ```install.packages("<PACKAGE-NAME>")```
-7. Load TranslocatoR and the needed packages
-    * ``` library(<PACKAGE-NAME>)```
-8. You are now set to use TranslocatoR. We provide you with a ready-to-use example <a href="#example">here</a>, as well as some output-context.
+TranslocatoR is easily installed directly from GitHub using the devtools() package.
+Simply run `devtools::install_github(repo = "https://github.com/friendsofstrandseq/TranslocatoR", ref = "master")`, load the TranslocatoR library with `library(TranslocatoR)` and you're ready to go.
+
+TranslocatoR utilizes the following R packages: ```"data.table", "gtools", "ggplot2", "stringr", "discreteMTP", "assertthat"``` and these will be installed automatically if you do not have them on your machine yet.
+
+Below we provide you with a ready-to-use example <a href="#example">here</a>, as well as some output-context.
 
 ## Using TranslocatoR
 Execute the following command and make sure to specify non-default arguments if needed.
@@ -128,21 +124,21 @@ Here we provide you ready-to-use data for testing TranslocatoR.
 Run TranslocatoR yourself:
 ```r
 translocatoR(
-    data.folder = "/data/example-data/example-input", 
-    output.folder = "/data/example-data/example-output/your-output", 
+    data.folder = "data/example-data/example-input", 
+    output.folder = "data/example-data/example-output/your-output", 
     samples = c("RPE-BM510"),
     options = "majority",
-    trfile = "/data/example-data/example-input/trfile-example.txt",
+    trfile = "data/example-data/example-input/trfile-example.txt",
     )
 ```
 
 #### Input #### 
-1. MosaiCatcher output-folder structure containing "RPE-BM510" as a sample: ```/data/example-data/example-input```
-2. Example file containing the manually-identified strand states of the suspected translocation ```/data/example-data/example-input/trfile-example.txt```
+1. MosaiCatcher output-folder structure containing "RPE-BM510" as a sample: ```data/example-data/example-input```
+2. Example file containing the manually-identified strand states of the suspected translocation ```data/example-data/example-input/trfile-example.txt```
 
 #### Output ####  
-1. We provide you with the expected example-run output: ```/data/example-data/example-output/example-run```
-2. If you have run TranslocatoR yourself the output can be found here: ```/data/example-data/example-output/your-output```
+1. We provide you with the expected example-run output: ```data/example-data/example-output/example-run```
+2. If you have run TranslocatoR yourself the output can be found here: ```data/example-data/example-output/your-output```
 
 
 ### <a name="understand-output">**Understanding the Output**</a>
